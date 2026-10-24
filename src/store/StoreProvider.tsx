@@ -2,7 +2,6 @@ import { createContext, useContext, useEffect, useMemo, useReducer, type PropsWi
 import { createSeedBusinessData } from '../data/seed';
 import {
   adjustStock,
-  pickItem,
   receiveStock,
   StockActionError,
   type AdjustStockInput,
@@ -12,6 +11,7 @@ import {
 import type { StoreState, Theme, User } from '../domain/models';
 import { InventoryActionError, updateReorderPoint as updateProductReorderPoint } from '../domain/inventory';
 import { OrderActionError, startPicking as startOrderPicking } from '../domain/orders';
+import { completeShortPick, confirmPicking, PickingActionError, type ShortPickInput } from '../domain/picking';
 import { loadStoreState, persistStoreState } from './persistence';
 
 type StoreAction =
@@ -19,6 +19,7 @@ type StoreAction =
   | { type: 'stock/pick'; input: PickItemInput }
   | { type: 'stock/adjust'; input: AdjustStockInput }
   | { type: 'orders/start-picking'; orderId: string; userId: string }
+  | { type: 'orders/short-pick'; input: ShortPickInput }
   | { type: 'inventory/reorder-point'; sku: string; reorderPoint: number }
   | { type: 'session/login'; user: User }
   | { type: 'session/logout' }
@@ -55,16 +56,30 @@ function runOrderAction(state: StoreState, operation: () => StoreState): StoreSt
   }
 }
 
+function runPickingAction(state: StoreState, operation: () => ReturnType<typeof confirmPicking>): StoreState {
+  try {
+    const result = operation();
+    return { ...result.state, feedback: { kind: 'success', message: result.message } };
+  } catch (error) {
+    const message = error instanceof PickingActionError || error instanceof StockActionError
+      ? error.message
+      : 'The picking action could not be completed.';
+    return { ...state, feedback: { kind: 'error', message } };
+  }
+}
+
 export function storeReducer(state: StoreState, action: StoreAction): StoreState {
   switch (action.type) {
     case 'stock/receive':
       return runStockAction(state, () => receiveStock(state, action.input));
     case 'stock/pick':
-      return runStockAction(state, () => pickItem(state, action.input));
+      return runPickingAction(state, () => confirmPicking(state, action.input));
     case 'stock/adjust':
       return runStockAction(state, () => adjustStock(state, action.input));
     case 'orders/start-picking':
       return runOrderAction(state, () => startOrderPicking(state, action));
+    case 'orders/short-pick':
+      return runPickingAction(state, () => completeShortPick(state, action.input));
     case 'inventory/reorder-point':
       return runInventoryAction(state, () => updateProductReorderPoint(state, action.sku, action.reorderPoint));
     case 'session/login':
@@ -94,6 +109,7 @@ export interface StoreContextValue {
   state: StoreState;
   receiveStock(input: ReceiveStockInput): void;
   pickItem(input: PickItemInput): void;
+  shortPick(input: ShortPickInput): void;
   adjustStock(input: AdjustStockInput): void;
   startPicking(orderId: string): void;
   updateReorderPoint(sku: string, reorderPoint: number): void;
@@ -118,6 +134,7 @@ export function StoreProvider({ children }: PropsWithChildren) {
     state,
     receiveStock: (input) => dispatch({ type: 'stock/receive', input }),
     pickItem: (input) => dispatch({ type: 'stock/pick', input }),
+    shortPick: (input) => dispatch({ type: 'orders/short-pick', input }),
     adjustStock: (input) => dispatch({ type: 'stock/adjust', input }),
     startPicking: (orderId) => dispatch({ type: 'orders/start-picking', orderId, userId: state.session?.id ?? '' }),
     updateReorderPoint: (sku, reorderPoint) => dispatch({ type: 'inventory/reorder-point', sku, reorderPoint }),

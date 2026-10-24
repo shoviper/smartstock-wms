@@ -40,6 +40,8 @@ export interface OrderLine {
   sku: string;
   qty: number;
   pickedQty: number;
+  shortQty?: number;
+  shortReason?: string;
 }
 
 export interface Order {
@@ -53,6 +55,7 @@ export interface Order {
   startedAt?: string | null;
   assignedTo?: string | null;
   shortageReason?: string;
+  completedAt?: string | null;
 }
 
 export interface Movement {

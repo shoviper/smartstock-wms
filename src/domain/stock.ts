@@ -14,6 +14,7 @@ export type StockErrorCode =
   | 'INVALID_QUANTITY'
   | 'NEGATIVE_STOCK'
   | 'SKU_MISMATCH'
+  | 'LOCATION_MISMATCH'
   | 'ORDER_NOT_FOUND'
   | 'ORDER_NOT_PICKABLE'
   | 'ORDER_LINE_NOT_FOUND'
@@ -67,6 +68,7 @@ export interface PickItemInput {
   scannedSku: string;
   quantity: number;
   userId: string;
+  expectedLocationId?: string;
   reason?: string;
   shortageReason?: string;
   timestamp?: string;
@@ -175,6 +177,10 @@ export function pickItem(state: StoreState, input: PickItemInput): StockActionRe
   }
   const line = order.lines.find((candidate) => candidate.sku === input.sku);
   if (!line) throw new StockActionError('ORDER_LINE_NOT_FOUND', `${input.sku} is not on order ${input.orderId}.`);
+  const product = state.products[input.sku];
+  if (input.expectedLocationId !== undefined && input.expectedLocationId.trim().toLocaleUpperCase() !== product?.locationId.trim().toLocaleUpperCase()) {
+    throw new StockActionError('LOCATION_MISMATCH', `Scanned location does not match ${product?.locationId ?? 'the assigned location'}.`);
+  }
   if (input.quantity > line.qty - line.pickedQty) {
     throw new StockActionError('PICK_EXCEEDS_REMAINING', 'Picked quantity cannot exceed the remaining order quantity.');
   }

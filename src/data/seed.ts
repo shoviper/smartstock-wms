@@ -167,6 +167,7 @@ for (let index = 0; index < productRows.length; index += 1) {
     sku: productRows[index].sku,
     qty: Math.max(1, pickedQty + remainingQty),
     pickedQty,
+    ...(status === 'COMPLETED_WITH_SHORTAGE' ? { shortQty: remainingQty, shortReason: 'Not found at location' } : {}),
   });
 }
 

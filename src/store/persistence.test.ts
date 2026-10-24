@@ -71,6 +71,33 @@ describe('versioned localStorage persistence', () => {
     expect(loaded.movements).toEqual(savedState.movements);
   });
 
+  it('migrates legacy completed-with-shortage lines without changing other orders, stock, or Movements', () => {
+    const storage = createMemoryStorage();
+    const base = createInitialStoreState();
+    const shortageId = 'ORD-2026-0012';
+    const regularId = 'ORD-2026-0001';
+    const oldShortageOrder = {
+      ...base.orders[shortageId],
+      lines: base.orders[shortageId].lines.map((line) => ({ sku: line.sku, qty: line.qty, pickedQty: line.pickedQty })),
+    };
+    const oldRegularOrder = { ...base.orders[regularId], lines: base.orders[regularId].lines.map((line) => ({ sku: line.sku, qty: line.qty, pickedQty: line.pickedQty })) };
+    const oldState = {
+      ...base,
+      products: { ...base.products, 'SKU-007': { ...base.products['SKU-007'], onHand: 3 } },
+      orders: { ...base.orders, [shortageId]: oldShortageOrder, [regularId]: oldRegularOrder },
+      movements: [...base.movements],
+    };
+    storage.setItem(STORAGE_KEY, JSON.stringify({ version: 2, state: oldState }));
+
+    const loaded = loadStoreState(storage);
+    expect(loaded.orders[shortageId].status).toBe('COMPLETED_WITH_SHORTAGE');
+    expect(loaded.orders[shortageId].lines).toEqual(expect.arrayContaining(oldShortageOrder.lines.map((line) => expect.objectContaining({ sku: line.sku, shortQty: line.qty - line.pickedQty, shortReason: 'Not found at location' }))));
+    expect(loaded.orders[regularId].lines).toEqual(oldRegularOrder.lines);
+    expect(loaded.orders[regularId].status).toBe('PENDING');
+    expect(loaded.products['SKU-007'].onHand).toBe(3);
+    expect(loaded.movements).toEqual(oldState.movements);
+  });
+
   it('falls back to seed data when the stored version is unsupported', () => {
     const storage = createMemoryStorage();
     storage.setItem(STORAGE_KEY, JSON.stringify({ version: STORE_VERSION + 1, state: {} }));

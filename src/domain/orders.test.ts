@@ -133,4 +133,22 @@ describe('Orders & Picking domain', () => {
       }
     }
   });
+
+  it('keeps seeded completed-with-shortage lines consistent with quantities and PICK Movements', () => {
+    const shortageOrders = Object.values(seedBusinessData.orders).filter((order) => order.status === 'COMPLETED_WITH_SHORTAGE');
+    expect(shortageOrders.length).toBeGreaterThan(0);
+    for (const order of shortageOrders) {
+      for (const line of order.lines) {
+        expect(line.pickedQty + (line.shortQty ?? 0)).toBe(line.qty);
+        const movementQuantity = seedBusinessData.movements
+          .filter((movement) => movement.type === 'PICK' && movement.reference === order.id && movement.sku === line.sku)
+          .reduce((total, movement) => total - movement.qty, 0);
+        expect(movementQuantity).toBe(line.pickedQty);
+      }
+    }
+    expect(seedBusinessData.orders['ORD-2026-0012'].lines.filter((line) => ['SKU-008', 'SKU-016', 'SKU-024'].includes(line.sku)))
+      .toEqual(expect.arrayContaining(['SKU-008', 'SKU-016', 'SKU-024'].map((sku) => expect.objectContaining({ shortQty: 1, shortReason: 'Not found at location', sku }))));
+    expect(seedBusinessData.orders['ORD-2026-0011'].status).toBe('IN_PROGRESS');
+    expect(seedBusinessData.orders['ORD-2026-0011'].lines.filter((line) => ['SKU-007', 'SKU-015', 'SKU-023'].includes(line.sku)).every((line) => line.shortQty === undefined)).toBe(true);
+  });
 });
