@@ -108,6 +108,13 @@ Login แบบ Demo Access: กรอก credential อะไรก็ได้
 - กราฟสถานะงาน (Pending / In Progress / Completed), รายการสต็อกวิกฤต, Order ที่ใกล้เลยกำหนด, กิจกรรมล่าสุด (จาก Movements)
 - **AC:** ตัวเลขทุกตัวคำนวณจาก store (ห้าม hardcode) และเปลี่ยนทันทีเมื่อมีการรับเข้า/หยิบออก
 
+#### นิยามที่ใช้ใน Dashboard
+1. **วันนี้** = วันปฏิทิน Asia/Bangkok คำนวณจากเวลาปัจจุบันที่ส่งให้ selector; จำนวน Order ใช้ `completedAt` และจำนวนหน่วยใช้ Movement ประเภท `PICK` ตามวันดังกล่าว
+2. **Overdue** = Order สถานะ Pending/In Progress ที่ due ก่อนเวลาปัจจุบัน
+3. **ใกล้ถึงกำหนด** = Order สถานะ Pending/In Progress ที่ due ตั้งแต่เวลาปัจจุบันถึง 24 ชั่วโมงข้างหน้า
+4. รายการ Order เร่งด่วนเรียง Overdue ก่อน แล้วเรียง due จากเร็วไปช้า แสดงไม่เกิน 5 รายการ
+5. **Items needing attention** = Low + Critical + Out
+
 ### 6.3 Inventory (BR-01, BR-06)
 - ตาราง: SKU, ชื่อสินค้า, หมวด, On-hand, ตำแหน่ง, Reorder point, สถานะ (Normal / Low / Critical / Out)
 - Search (SKU/ชื่อ), Filter (หมวด, สถานะ, Zone), Sort

@@ -10,7 +10,7 @@
 | 1 | Foundation: seed data, central store, Login + Role, Layout, Light/Dark, deploy | Complete — ผู้ใช้ยืนยันว่า deploy แล้ว |
 | 2 | Inventory + Product Detail | Complete — Steps 2a and 2b complete |
 | 3 | Receiving, Orders & Picking, Stock Movements, Stock Adjustment | In progress — Steps 3a/3b/3c/3d complete; Step 3e verified |
-| 4 | Dashboard + AI Insights | Not started |
+| 4 | Dashboard + AI Insights | Round 4a complete — Dashboard implemented and verified; AI Insights (4b) not started |
 | 5 | Reports, Users & Roles, Settings, mobile picking, polish | Not started |
 
 ## Decisions
@@ -27,6 +27,8 @@
 - Each seed product now declares explicit category and unit values. Loading existing persisted products refreshes only category/unit from the seed while preserving quantities, reorder points and movements. Stock alerts are ordered Out → Critical → Low, then by SKU.
 - Vitest pinned to 4.1.12 for Node compatibility and to use the patched release; latest `npm audit` reported zero vulnerabilities.
 - All numeric text fields must use the shared `parseWholeNumber(raw)` parser so accepted values are ASCII digits and safe integers.
+- Round 4a Dashboard definitions: “today” uses the `Asia/Bangkok` calendar date derived from each selector's injected `now`; “due soon” means an open order due from now through the next 24 hours, while overdue means due before now. Dashboard urgent orders sort overdue first, then due time ascending, and show at most five. Items needing attention is Low + Critical + Out per REQUIREMENTS.md section 8. Seed `dueAt` values are ISO timestamps with times; no seed change was needed.
+- Round 4a Dashboard typography: compact secondary text uses the existing 11px scale, badges use the existing 10px scale, and headings/KPI hierarchy follows shared page typography. On a 375px responsive viewport the date/quantity labels remain separated in the horizontally scrollable 14-day chart; KPI text wraps cleanly without clipping.
 
 ## Store structure
 - `src/domain/models.ts`: Product, Location (capacity, coordinates, dispatch distance), Order/OrderLine (start time and assignee), Movement, User and StoreState types.
@@ -50,6 +52,10 @@
 - `src/domain/stock.ts`: `receiveStock` now permits Receiver/Manager/Admin only and checks capacity at the SKU's assigned location; capacity errors report remaining units. Other stock action behavior remains unchanged.
 - `src/domain/stock.test.ts`: regression coverage for `adjustStock` through the store action: exact location capacity succeeds; capacity +1 is rejected without changing on-hand or Movements.
 - `src/flows/operations.test.ts`: Round 3 Step 3e store integration coverage for Flows 1–6 and 8 plus 200 seeded valid/invalid stock actions; checks non-negative/capacity-bounded on-hand, continuous Movement chains, latest Movement/on-hand consistency and Order PICK totals after each action. Alert counts are derived from the same inventory status selectors used by Topbar.
+- `src/domain/dashboard.ts` and `src/domain/dashboard.test.ts`: pure store-backed KPI, order/stock status, 14 Bangkok calendar-day RECEIVE/PICK totals, urgent product/order ordering and recent Movement selectors. Every selector receives `now`; boundaries and empty data are covered.
+- `src/components/DashboardPage.tsx`, `src/App.tsx`, and `src/styles.css`: responsive Manager/Admin Dashboard with linked KPIs, three accessible labeled charts, urgent products/orders and latest eight Movements. Existing route/menu guard remains the authority; Dashboard replaces only the `/` placeholder. No chart dependency added.
+- `src/flows/dashboard.test.ts`: store-reducer integration verifies dashboard attention counts update after receive, pick and adjust actions.
+- `QA_CHECKLIST.md`: Round 4a Dashboard manual checks added for KPI changes, roles, urgent links, time definitions, charts and responsive empty states.
 - `src/components/Topbar.tsx` and `src/styles.css`: Manager/Admin profile menu includes “Reset demo data” with a confirmation dialog; it resets business data while preserving session and theme.
 - `QA_CHECKLIST.md`: manual click-through checklist for Critical Test Flows 1–8; Dashboard checks in Flows 1 and 6 are explicitly deferred to Round 4a.
 - `src/domain/access.ts`: Picker cannot access `/receiving` and route access redirects to Picker home; Receiver, Manager and Admin retain route access.
@@ -86,6 +92,7 @@
 - Round 3 Step 3c Phase 2 Short pick validation refinement: quantity 0 permits blank location/SKU, but validates every non-empty value in both the modal and domain action; positive quantity still requires both matching values. Added unit coverage for blank/correct/mismatched zero scans, atomic rejection, positive quantity requirements, and preserved Other-reason validation. Verification: `npm test` passes (126 tests across 10 files); lint/build rerun pending.
 - Round 3 Step 3d baseline before the initial implementation: `npm test` passed (126 tests across 10 files). Baseline before the latest variance/Preview update: 149 tests across 11 files. Latest verification: `npm run lint`, `npm run build`, and `npm test` all pass; 149 tests across 11 files. Variance boundary cases cover 5→4, 5→2, 50→41, 50→40, 20→16, 20→17, 0→9 and 0→10. Direction rules are covered for positive Lost/Damaged/Found, negative Found/Lost/Damaged, Cycle count correction/Data entry error/Other in both directions, and zero difference. Manual browser checks: 0→4 with Damaged goods shows the Reason error, generic Preview and disabled action; changing to Found stock clears the error and shows 0→4 (+4); 5→4 has no large-variance warning and 5→2 does; 8→9 saved and verified on-hand 9 with an ADJUST +1 Movement; 5→5 shows the no-record message and disables the action; Light/Dark error colors verified. At 890px the Preview/action row remains horizontal and right-aligned. Narrow viewport visual check remains pending because the available in-app browser session did not expose a viewport resize control; CSS switches form and action row to one column at ≤819px.
 - Round 3 Step 3e checks: baseline before edits `npm test` passed (149 tests across 11 files). Added the location-capacity guard to `adjustStock` without changing its other validation/recording behavior, with store-action regression tests for exact capacity and capacity +1. Added store flow and seeded random invariant coverage (200 actions); final `npm test` passes 159 tests across 12 files, with all baseline tests retained and passing. `npm run lint` and `npm run build` pass. Reset demo data is available to Manager/Admin in the profile dropdown with confirmation; reducer test and browser check confirmed the session/theme stay active and Reset can be canceled. Dashboard checks remain deferred to Round 4a and are marked as such in the QA checklist. Manual click-through for Flows 1–8 remains for user review using `QA_CHECKLIST.md`.
+- Round 4a verification: `npm run lint`, `npm run build`, and `npm test` pass (168 tests across 14 files). Dashboard selectors and integration tests cover injected Bangkok `now`, midnight boundaries, the 24-hour due boundary, 14-day range edges, empty state, and store receive/pick/adjust effects. Manual browser review remains for the Round 4a rows in `QA_CHECKLIST.md`.
 - Round 2 Step 2b manual checks: open a product from Inventory as each role and return with query state intact; verify unknown SKU state; check position-code parity, stock endpoint scale/legend and status colors; update reorder point as Manager/Admin, verify invalid/unchanged Save states, updated-message dismissal on edit and refresh persistence/status alerts; confirm Picker/Receiver read-only; inspect recent Movements and open Orders.
 
 ## Deployed URL
@@ -93,9 +100,12 @@
 
 ## Known issues
 - Demo dispatch coordinates model a simple straight-through warehouse path; validate distances and walking paths against a real warehouse layout before operational use.
+- Dashboard's 14-day movement chart links to Stock Movements with `range=30d` because the Movements page supports only today, 7d, 30d, and all; it has no 14d filter yet.
+- Seed order due dates are computed once when `src/data/seed.ts` loads; persisted old due dates can become overdue as time passes. Reset clones the module's seed values rather than recalculating them, so refresh the app first and then use Reset demo data for fresh due dates (seed code remains unchanged).
+- Stock Movements colors RECEIVE badges green and PICK badges yellow even though Movement types are not stock statuses, which may conflict with AGENTS.md's status-only red/yellow/green guidance. Defer the decision to Round 5; Dashboard uses non-status hues for Movement types.
 
 ## Next step
-- Round 3 Step 3e is implemented and verified; awaiting user manual review using `QA_CHECKLIST.md`. Next: Round 4 only when requested. Do not commit/push.
+- Round 4a Dashboard is implemented and automated checks pass; complete the Dashboard manual review using `QA_CHECKLIST.md`. AI Insights (Round 4b) remains unstarted. Do not commit/push.
 
 ## Backlog
 - Round 5 (if time permits): Inventory still shows all 40 products on one page. To align with Stock Movements, paginate 25 per page by extracting pagination into a shared component/hook. Not tied to a BR. Risk: may affect Stock Movements and Inventory's existing query state. Production inventory (~2,000 SKUs) needs pagination or virtual scroll.

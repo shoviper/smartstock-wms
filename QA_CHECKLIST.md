@@ -27,3 +27,17 @@
 - Test Flows 1 และ 6 ตรวจ Dashboard แยกไว้เป็นรายการรอ Round 4a; ใน 3e ให้ตรวจ Receive/Inventory/Movement และกระดิ่ง/Inventory ตามรายการที่ทำได้แล้ว
 - Seed ปัจจุบันอาจไม่มี order line ที่เหลือ 5 หน่วยพอดี; ในการทดสอบมือให้หยิบจำนวนที่เหลือจริงของบรรทัดและทำให้ครบทุกบรรทัด ส่วน integration test ระดับ store ทดสอบจำนวน 5 โดยเฉพาะ
 - หลังทดสอบ Reset ให้ยืนยันว่า Profile ยังแสดง Role เดิมและธีมเดิม
+
+## Round 4a — Dashboard
+
+| ขั้น | Role | สิ่งที่ให้ทดสอบ | ผลที่ควรเห็น | ผล |
+|---:|---|---|---|---|
+| 1 | Manager / Admin | เปิด Dashboard และตรวจ KPI ทั้งสี่ใบ | ตัวเลขตรงกับ Inventory, Orders, Completed today และ PICK units ใน store; attention แยก Out/Critical/Low | ☐ ผ่าน / ☐ ไม่ผ่าน |
+| 2 | Receiver | รับสินค้า SKU สถานะ Low จนเกิน reorder point แล้วเปิด Dashboard ใน Manager session | จำนวน Items needing attention ลดลง และตัวเลขเปลี่ยนจาก store | ☐ ผ่าน / ☐ ไม่ผ่าน |
+| 3 | Picker | หยิบสินค้าจนต่ำกว่า reorder point แล้วเปิด Dashboard ใน Manager session | Items needing attention เพิ่ม; Picking completed today และจำนวน PICK units แสดงตามข้อมูลวันนี้ | ☐ ผ่าน / ☐ ไม่ผ่าน |
+| 4 | Manager | ปรับสินค้าสถานะ Normal เป็น 0 แล้วเปิด Dashboard | สินค้าปรากฏใน Out และ Items needing attention เพิ่ม | ☐ ผ่าน / ☐ ไม่ผ่าน |
+| 5 | Manager / Admin | คลิก KPI, chart status, สินค้าเร่งด่วน, Order เร่งด่วน และ Stock Movements | ลิงก์เปิดหน้าที่ถูกต้อง; Inventory หลายสถานะกรองได้; Order เปิดรายละเอียดตาม ID | ☐ ผ่าน / ☐ ไม่ผ่าน |
+| 6 | Manager / Admin | ตรวจการ์ด Overdue or due soon | คำนิยามแสดงใต้หัวข้อ; Overdue มาก่อน แล้ว due เร็วไปช้า สูงสุด 5 รายการ | ☐ ผ่าน / ☐ ไม่ผ่าน |
+| 7 | Manager / Admin | ตรวจ KPI วันนี้และกราฟ movement | คำนิยาม Asia/Bangkok แสดง; กราฟมี 14 วัน ป้ายวันที่และค่า RECEIVE/PICK | ☐ ผ่าน / ☐ ไม่ผ่าน |
+| 8 | Picker / Receiver | เปิด `/` โดยตรง | ถูก redirect ไปหน้าแรกของ Role และไม่มี Dashboard ในเมนู | ☐ ผ่าน / ☐ ไม่ผ่าน |
+| 9 | Manager / Admin | ตรวจหน้าจอกว้างและแคบ รวมถึง empty state | การ์ดและกราฟจัดวางอ่านได้; empty state แสดงเมื่อไม่มีข้อมูล | ☐ ผ่าน / ☐ ไม่ผ่าน |
