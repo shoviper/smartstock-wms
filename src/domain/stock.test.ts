@@ -140,6 +140,7 @@ describe('stock actions', () => {
       orders: {},
       movements: [],
       currentUserId: managerId,
+      session: initial.users[managerId],
       theme: 'dark',
     };
     const reset = storeReducer(changed, { type: 'demo/reset' });
@@ -150,6 +151,7 @@ describe('stock actions', () => {
     expect(reset.locations).toEqual(changed.locations);
     expect(reset.users).toEqual(changed.users);
     expect(reset.currentUserId).toBe(managerId);
+    expect(reset.session).toEqual(initial.users[managerId]);
     expect(reset.theme).toBe('dark');
   });
 

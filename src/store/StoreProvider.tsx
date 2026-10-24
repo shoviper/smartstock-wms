@@ -9,13 +9,17 @@ import {
   type PickItemInput,
   type ReceiveStockInput,
 } from '../domain/stock';
-import type { StoreState } from '../domain/models';
+import type { StoreState, Theme, User } from '../domain/models';
 import { loadStoreState, persistStoreState } from './persistence';
 
 type StoreAction =
   | { type: 'stock/receive'; input: ReceiveStockInput }
   | { type: 'stock/pick'; input: PickItemInput }
   | { type: 'stock/adjust'; input: AdjustStockInput }
+  | { type: 'session/login'; user: User }
+  | { type: 'session/logout' }
+  | { type: 'theme/set'; theme: Theme }
+  | { type: 'theme/toggle' }
   | { type: 'demo/reset' }
   | { type: 'feedback/clear' };
 
@@ -37,6 +41,14 @@ export function storeReducer(state: StoreState, action: StoreAction): StoreState
       return runStockAction(state, () => pickItem(state, action.input));
     case 'stock/adjust':
       return runStockAction(state, () => adjustStock(state, action.input));
+    case 'session/login':
+      return { ...state, currentUserId: action.user.id, session: action.user, feedback: null };
+    case 'session/logout':
+      return { ...state, currentUserId: null, session: null, feedback: null };
+    case 'theme/set':
+      return { ...state, theme: action.theme };
+    case 'theme/toggle':
+      return { ...state, theme: state.theme === 'light' ? 'dark' : 'light' };
     case 'demo/reset': {
       const seed = createSeedBusinessData();
       return {
@@ -57,6 +69,10 @@ export interface StoreContextValue {
   receiveStock(input: ReceiveStockInput): void;
   pickItem(input: PickItemInput): void;
   adjustStock(input: AdjustStockInput): void;
+  login(user: User): void;
+  logout(): void;
+  setTheme(theme: Theme): void;
+  toggleTheme(): void;
   resetDemoData(): void;
   clearFeedback(): void;
 }
@@ -75,6 +91,10 @@ export function StoreProvider({ children }: PropsWithChildren) {
     receiveStock: (input) => dispatch({ type: 'stock/receive', input }),
     pickItem: (input) => dispatch({ type: 'stock/pick', input }),
     adjustStock: (input) => dispatch({ type: 'stock/adjust', input }),
+    login: (user) => dispatch({ type: 'session/login', user }),
+    logout: () => dispatch({ type: 'session/logout' }),
+    setTheme: (theme) => dispatch({ type: 'theme/set', theme }),
+    toggleTheme: () => dispatch({ type: 'theme/toggle' }),
     resetDemoData: () => dispatch({ type: 'demo/reset' }),
     clearFeedback: () => dispatch({ type: 'feedback/clear' }),
   }), [state]);

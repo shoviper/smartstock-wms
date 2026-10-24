@@ -16,7 +16,12 @@ function createMemoryStorage(): Storage {
 describe('versioned localStorage persistence', () => {
   it('persists and restores the versioned store, session, and theme', () => {
     const storage = createMemoryStorage();
-    const state = { ...createInitialStoreState(), currentUserId: 'user-manager-01', theme: 'dark' as const };
+    const state = {
+      ...createInitialStoreState(),
+      currentUserId: 'user-manager-01',
+      session: { id: 'user-manager-01', name: 'Demo Manager', role: 'MANAGER' as const },
+      theme: 'dark' as const,
+    };
 
     expect(persistStoreState(state, storage)).toBe(true);
     const saved = JSON.parse(storage.getItem(STORAGE_KEY) ?? '{}');
@@ -24,6 +29,7 @@ describe('versioned localStorage persistence', () => {
     expect(loadStoreState(storage)).toMatchObject({
       products: state.products,
       currentUserId: 'user-manager-01',
+      session: state.session,
       theme: 'dark',
       feedback: null,
     });

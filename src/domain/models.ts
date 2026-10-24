@@ -88,6 +88,7 @@ export interface StoreFeedback {
 
 export interface StoreState extends BusinessData {
   currentUserId: string | null;
+  session: User | null;
   theme: Theme;
   feedback: StoreFeedback | null;
 }
