@@ -6,6 +6,7 @@ import { InventoryPage } from './components/InventoryPage';
 import { ProductDetailPage } from './components/ProductDetailPage';
 import { ReceivingPage } from './components/ReceivingPage';
 import { StockMovementsPage } from './components/StockMovementsPage';
+import { StockAdjustmentPage } from './components/StockAdjustmentPage';
 import { OrderDetailPage, OrdersListPage } from './components/OrdersPickingPage';
 import { getRouteRedirect, ALL_MENU_ITEMS } from './domain/access';
 import { useStore } from './store/StoreProvider';
@@ -44,8 +45,9 @@ export default function App() {
         <Route element={<OrderDetailPage />} path="/orders-picking/:orderId" />
         <Route element={<StockMovementsPage />} path="/movements" />
         <Route element={<StockMovementsPage />} path="/stock-movements" />
+        <Route element={<StockAdjustmentPage />} path="/adjustment" />
         {ALL_MENU_ITEMS.map(({ path, label }) => (
-          path === '/inventory' || path === '/receiving' || path === '/orders' || path === '/movements' ? null : <Route element={<PagePlaceholder label={label} />} key={path} path={path} />
+          path === '/inventory' || path === '/receiving' || path === '/orders' || path === '/movements' || path === '/adjustment' ? null : <Route element={<PagePlaceholder label={label} />} key={path} path={path} />
         ))}
         <Route element={<Navigate replace to="/" />} path="*" />
       </Routes>
