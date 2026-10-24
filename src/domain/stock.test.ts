@@ -155,6 +155,29 @@ describe('stock actions', () => {
     expect(result.message).toContain('no Movement was created');
   });
 
+  it('blocks adjustment above location capacity through the store action and allows capacity exactly', () => {
+    const base = stateWithProduct('SKU-010', 10);
+    const capacity = base.locations[base.products['SKU-010'].locationId].capacity;
+    const belowCapacity = {
+      ...base,
+      products: { ...base.products, 'SKU-010': { ...base.products['SKU-010'], onHand: capacity - 2 } },
+    };
+    const atCapacity = storeReducer(belowCapacity, {
+      type: 'stock/adjust',
+      input: { sku: 'SKU-010', countedQty: capacity, userId: managerId, reason: 'Cycle count' },
+    });
+    expect(atCapacity.products['SKU-010'].onHand).toBe(capacity);
+    expect(atCapacity.movements.at(-1)).toMatchObject({ type: 'ADJUST', qty: 2, qtyAfter: capacity });
+
+    const overCapacity = storeReducer(belowCapacity, {
+      type: 'stock/adjust',
+      input: { sku: 'SKU-010', countedQty: capacity + 1, userId: managerId, reason: 'Cycle count' },
+    });
+    expect(overCapacity.products).toEqual(belowCapacity.products);
+    expect(overCapacity.movements).toEqual(belowCapacity.movements);
+    expect(overCapacity.feedback).toMatchObject({ kind: 'error', message: `Counted quantity cannot exceed location capacity of ${capacity}.` });
+  });
+
   it('Reset demo data restores only business data and preserves session and theme', () => {
     const initial = createInitialStoreState();
     const changed: StoreState = {

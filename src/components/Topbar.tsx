@@ -19,10 +19,12 @@ const alertLabel: Record<StockStatus, string> = {
 
 export function Topbar({ onOpenNavigation }: TopbarProps) {
   const navigate = useNavigate();
-  const { state, logout } = useStore();
+  const { state, logout, resetDemoData } = useStore();
   const [openPanel, setOpenPanel] = useState<'alerts' | 'profile' | null>(null);
+  const [resetConfirmationOpen, setResetConfirmationOpen] = useState(false);
   const session = state.session;
   if (!session) return null;
+  const canResetDemoData = session.role === 'MANAGER' || session.role === 'ADMIN';
 
   const alerts = alertOrder.flatMap((status) =>
     selectProductsByStatus(state, status)
@@ -36,7 +38,14 @@ export function Topbar({ onOpenNavigation }: TopbarProps) {
     navigate('/login', { replace: true });
   }
 
+  function handleResetDemoData() {
+    resetDemoData();
+    setResetConfirmationOpen(false);
+    setOpenPanel(null);
+  }
+
   return (
+    <>
     <header className="topbar">
       <div className="topbar-leading">
         <button aria-label="Open navigation" className="mobile-menu-button" onClick={onOpenNavigation} type="button">
@@ -99,11 +108,21 @@ export function Topbar({ onOpenNavigation }: TopbarProps) {
             <section aria-label="Profile menu" className="popover-panel profile-panel">
               <p className="profile-menu-name">{session.name}</p>
               <p className="profile-menu-role">{getRoleLabel(session.role)} · Demo access</p>
+              {canResetDemoData && <button className="profile-reset-demo" onClick={() => { setOpenPanel(null); setResetConfirmationOpen(true); }} type="button">Reset demo data</button>}
               <button className="profile-logout" onClick={handleLogout} type="button">Log Out</button>
             </section>
           )}
         </div>
       </div>
     </header>
+    {resetConfirmationOpen && <div className="demo-reset-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setResetConfirmationOpen(false); }}>
+      <section aria-describedby="demo-reset-description" aria-labelledby="demo-reset-title" aria-modal="true" className="demo-reset-dialog" role="alertdialog">
+        <p className="eyebrow">DEMO DATA</p>
+        <h2 id="demo-reset-title">Reset demo data?</h2>
+        <p id="demo-reset-description">Products, orders and movements will return to their original sample data. Your sign-in and theme will stay as they are.</p>
+        <div className="demo-reset-actions"><button className="demo-reset-cancel" onClick={() => setResetConfirmationOpen(false)} type="button">Cancel</button><button className="demo-reset-confirm" onClick={handleResetDemoData} type="button">Reset demo data</button></div>
+      </section>
+    </div>}
+    </>
   );
 }

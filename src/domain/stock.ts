@@ -240,6 +240,10 @@ export function adjustStock(state: StoreState, input: AdjustStockInput): StockAc
   if (difference === 0) {
     return { state, message: `Stock matches the count for ${input.sku}; no Movement was created.` };
   }
+  const location = state.locations[product.locationId];
+  if (location && input.countedQty > location.capacity) {
+    throw new StockActionError('CAPACITY_EXCEEDED', `Counted quantity cannot exceed location capacity of ${location.capacity}.`);
+  }
 
   return applyStockChange(state, {
     type: 'ADJUST',
