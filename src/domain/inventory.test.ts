@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_INVENTORY_FILTERS, filterAndSortInventory, hasActiveInventoryFilters, parseInventoryQuery, resetInventoryFilters, serializeInventoryQuery, toggleInventorySort, type InventoryFilters, type InventoryRow } from './inventory';
+import { DEFAULT_INVENTORY_FILTERS, filterAndSortInventory, getStockStatus, hasActiveInventoryFilters, parseInventoryQuery, resetInventoryFilters, selectSkuMovementHistory, serializeInventoryQuery, toggleInventorySort, updateReorderPoint, InventoryActionError, type InventoryFilters, type InventoryRow } from './inventory';
+import { createInitialStoreState } from '../store/persistence';
 
 const rows: InventoryRow[] = [
   { product: { sku: 'SKU-003', name: 'Red tape', category: 'Packing', unit: 'roll', locationId: 'loc-a', onHand: 0, reorderPoint: 10, leadTimeDays: 4 }, zone: 'North', status: 'OUT' },
@@ -81,5 +82,61 @@ describe('inventory URL query', () => {
   it('preserves descending SKU sort but omits default SKU ascending sort', () => {
     expect(serializeInventoryQuery({ ...DEFAULT_INVENTORY_FILTERS, sort: 'sku', direction: 'desc' }).toString()).toBe('sort=sku&dir=desc');
     expect(serializeInventoryQuery(DEFAULT_INVENTORY_FILTERS).toString()).toBe('');
+  });
+});
+
+describe('Product Detail selectors and reorder point updates', () => {
+  it('selects only a SKU movement history, newest first', () => {
+    const state = createInitialStoreState();
+    const source = state.movements[0];
+    const historyState = {
+      ...state,
+      movements: [
+        { ...source, id: 'old', timestamp: '2025-01-01T00:00:00.000Z' },
+        { ...source, id: 'new', timestamp: '2025-02-01T00:00:00.000Z' },
+        { ...source, id: 'other-sku', sku: 'SKU-040', timestamp: '2025-03-01T00:00:00.000Z' },
+      ],
+    };
+    expect(selectSkuMovementHistory(historyState, source.sku).map(({ id }) => id)).toEqual(['new', 'old']);
+    expect(selectSkuMovementHistory(historyState, 'missing-sku')).toEqual([]);
+  });
+
+  it('updates a manager reorder point without changing stock or adding a Movement', () => {
+    const initial = createInitialStoreState();
+    const product = initial.products['SKU-001'];
+    const state = {
+      ...initial,
+      session: { id: 'manager-01', name: 'Manager', role: 'MANAGER' as const },
+      products: { ...initial.products, [product.sku]: { ...product, onHand: 10, reorderPoint: 12 } },
+    };
+    const statusBefore = getStockStatus(state.products[product.sku]);
+    const next = updateReorderPoint(state, product.sku, 20);
+    expect(statusBefore).toBe('LOW');
+    expect(getStockStatus(next.products[product.sku])).toBe('CRITICAL');
+    expect(next.products[product.sku]).toMatchObject({ onHand: 10, reorderPoint: 20 });
+    expect(next.movements).toBe(state.movements);
+    expect(next.movements).toEqual(state.movements);
+  });
+
+  it.each([0, -1, 1.5, Number.NaN])('rejects invalid reorder point %s', (value) => {
+    const initial = createInitialStoreState();
+    const state = { ...initial, session: { id: 'manager-01', name: 'Manager', role: 'MANAGER' as const } };
+    expect(() => updateReorderPoint(state, 'SKU-001', value)).toThrowError(InventoryActionError);
+    expect(() => updateReorderPoint(state, 'SKU-001', value)).toThrowError(/whole number of at least 1/);
+  });
+
+  it('rejects reorder points above location capacity', () => {
+    const initial = createInitialStoreState();
+    const state = { ...initial, session: { id: 'admin-01', name: 'Admin', role: 'ADMIN' as const } };
+    const product = state.products['SKU-001'];
+    const capacity = state.locations[product.locationId].capacity;
+    expect(() => updateReorderPoint(state, product.sku, capacity + 1)).toThrowError(/cannot exceed the location capacity/);
+  });
+
+  it.each(['PICKER', 'RECEIVER', null] as const)('blocks reorder point updates for role %s', (role) => {
+    const initial = createInitialStoreState();
+    const session = role ? { id: 'user-01', name: 'User', role } : null;
+    const state = { ...initial, session };
+    expect(() => updateReorderPoint(state, 'SKU-001', 10)).toThrowError(/Only a Manager or Admin/);
   });
 });

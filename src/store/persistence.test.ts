@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { seedBusinessData } from '../data/seed';
 import type { StoreState } from '../domain/models';
+import { updateReorderPoint } from '../domain/inventory';
 import { createInitialStoreState, loadStoreState, persistStoreState, STORE_VERSION, STORAGE_KEY } from './persistence';
 
 function createMemoryStorage(): Storage {
@@ -35,6 +36,20 @@ describe('versioned localStorage persistence', () => {
       theme: 'dark',
       feedback: null,
     });
+  });
+
+  it('persists an updated product reorder point through reload', () => {
+    const storage = createMemoryStorage();
+    const initial = createInitialStoreState();
+    const managerState: StoreState = {
+      ...initial,
+      currentUserId: 'user-manager-01',
+      session: { id: 'user-manager-01', name: 'Demo Manager', role: 'MANAGER' },
+    };
+    const updated = updateReorderPoint(managerState, 'SKU-001', 42);
+
+    expect(persistStoreState(updated, storage)).toBe(true);
+    expect(loadStoreState(storage).products['SKU-001'].reorderPoint).toBe(42);
   });
 
   it('falls back to seed data when the stored version is unsupported', () => {

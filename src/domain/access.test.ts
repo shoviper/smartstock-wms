@@ -26,6 +26,9 @@ describe('role-based access rules', () => {
   it('allows routes from the role menu and rejects restricted or unknown routes', () => {
     expect(canAccessRoute('PICKER', '/orders')).toBe(true);
     expect(canAccessRoute('RECEIVER', '/receiving')).toBe(true);
+    expect(canAccessRoute('PICKER', '/inventory/SKU-001')).toBe(true);
+    expect(canAccessRoute('RECEIVER', '/inventory/SKU-001')).toBe(true);
+    expect(canAccessRoute('PICKER', '/inventory/SKU-001/extra')).toBe(false);
     expect(canAccessRoute('PICKER', '/')).toBe(false);
     expect(canAccessRoute('RECEIVER', '/adjustment')).toBe(false);
     expect(canAccessRoute('MANAGER', '/users')).toBe(false);
@@ -37,6 +40,7 @@ describe('role-based access rules', () => {
     const picker = { id: 'picker-01', name: 'Picker Demo', role: 'PICKER' as const };
     const manager = { id: 'manager-01', name: 'Manager Demo', role: 'MANAGER' as const };
     expect(getRouteRedirect(null, '/inventory')).toBe('/login');
+    expect(getRouteRedirect(picker, '/inventory/SKU-001')).toBeNull();
     expect(getRouteRedirect(picker, '/')).toBe('/orders');
     expect(getRouteRedirect(manager, '/users')).toBe('/');
     expect(getRouteRedirect(manager, '/unknown')).toBe('/');

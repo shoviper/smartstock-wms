@@ -1,4 +1,4 @@
-import type { Product, StockStatus, StoreState } from './models';
+import type { Movement, Order, Product, Role, StockStatus, StoreState } from './models';
 
 export type InventorySort = 'sku' | 'name' | 'onHand' | 'status';
 export type SortDirection = 'asc' | 'desc';
@@ -16,6 +16,24 @@ export interface InventoryRow {
   product: Product;
   zone: string;
   status: StockStatus;
+}
+
+export interface OpenOrderForSku {
+  order: Order;
+  quantity: number;
+  pickedQuantity: number;
+}
+
+export type InventoryActionErrorCode = 'UNKNOWN_SKU' | 'UNKNOWN_LOCATION' | 'INVALID_REORDER_POINT' | 'CAPACITY_EXCEEDED' | 'FORBIDDEN';
+
+export class InventoryActionError extends Error {
+  readonly code: InventoryActionErrorCode;
+
+  constructor(code: InventoryActionErrorCode, message: string) {
+    super(message);
+    this.name = 'InventoryActionError';
+    this.code = code;
+  }
 }
 
 export const DEFAULT_INVENTORY_FILTERS: InventoryFilters = {
@@ -52,6 +70,46 @@ export function getStockStatus(product: Product): StockStatus {
 
 export function selectProductsByStatus(state: StoreState, status: StockStatus): Product[] {
   return Object.values(state.products).filter((product) => getStockStatus(product) === status);
+}
+
+export function selectSkuMovementHistory(state: StoreState, sku: string): Movement[] {
+  return state.movements
+    .filter((movement) => movement.sku === sku)
+    .sort((left, right) => Date.parse(right.timestamp) - Date.parse(left.timestamp) || right.id.localeCompare(left.id));
+}
+
+export function selectOpenOrdersForSku(state: StoreState, sku: string): OpenOrderForSku[] {
+  return Object.values(state.orders).flatMap((order) => {
+    if (order.status !== 'PENDING' && order.status !== 'IN_PROGRESS') return [];
+    const lines = order.lines.filter((line) => line.sku === sku);
+    if (lines.length === 0) return [];
+    return [{
+      order,
+      quantity: lines.reduce((total, line) => total + line.qty, 0),
+      pickedQuantity: lines.reduce((total, line) => total + line.pickedQty, 0),
+    }];
+  }).sort((left, right) => left.order.id.localeCompare(right.order.id));
+}
+
+export function updateReorderPoint(state: StoreState, sku: string, reorderPoint: number): StoreState {
+  const product = state.products[sku];
+  if (!product) throw new InventoryActionError('UNKNOWN_SKU', `Unknown SKU: ${sku}`);
+  const location = state.locations[product.locationId];
+  if (!location) throw new InventoryActionError('UNKNOWN_LOCATION', `Unknown location: ${product.locationId}`);
+  const allowedRoles: Role[] = ['MANAGER', 'ADMIN'];
+  if (!state.session || !allowedRoles.includes(state.session.role)) {
+    throw new InventoryActionError('FORBIDDEN', 'Only a Manager or Admin can update the reorder point.');
+  }
+  if (!Number.isInteger(reorderPoint) || reorderPoint < 1) {
+    throw new InventoryActionError('INVALID_REORDER_POINT', 'Reorder point must be a whole number of at least 1.');
+  }
+  if (reorderPoint > location.capacity) {
+    throw new InventoryActionError('CAPACITY_EXCEEDED', `Reorder point cannot exceed the location capacity of ${location.capacity}.`);
+  }
+  return {
+    ...state,
+    products: { ...state.products, [sku]: { ...product, reorderPoint } },
+  };
 }
 
 export function selectInventoryRows(state: StoreState): InventoryRow[] {

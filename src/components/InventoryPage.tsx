@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useMemo, type KeyboardEvent } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { filterAndSortInventory, hasActiveInventoryFilters, parseInventoryQuery, resetInventoryFilters, selectInventoryFacets, selectInventoryRows, serializeInventoryQuery, toggleInventorySort, type InventoryFilters, type InventorySort } from '../domain/inventory';
 import type { StockStatus } from '../domain/models';
 import { useStore } from '../store/StoreProvider';
@@ -13,6 +13,8 @@ function StatusBadge({ status }: { status: StockStatus }) {
 
 export function InventoryPage() {
   const { state } = useStore();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const facets = useMemo(() => selectInventoryFacets(state), [state]);
   const filters = parseInventoryQuery(searchParams, facets.categories, facets.zones);
@@ -36,6 +38,15 @@ export function InventoryPage() {
   }
   function clearFilters() {
     setSearchParams(serializeInventoryQuery(resetInventoryFilters()));
+  }
+  function openProduct(sku: string) {
+    navigate(`/inventory/${encodeURIComponent(sku)}${location.search}`);
+  }
+  function handleRowKeyDown(event: KeyboardEvent<HTMLElement>, sku: string) {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      openProduct(sku);
+    }
   }
 
   return (
@@ -65,10 +76,10 @@ export function InventoryPage() {
             <th aria-sort={sortValue('name')}><button onClick={() => sortBy('name')} type="button">Product name{sortIndicator('name')}</button></th>
             <th>Category</th><th aria-sort={sortValue('onHand')}><button onClick={() => sortBy('onHand')} type="button">On-hand{sortIndicator('onHand')}</button></th><th>Location</th><th>Reorder point</th>
             <th aria-sort={sortValue('status')}><button onClick={() => sortBy('status')} type="button">Status{sortIndicator('status')}</button></th>
-          </tr></thead><tbody>{rows.map(({ product, zone, status }) => <tr key={product.sku}>
+          </tr></thead><tbody>{rows.map(({ product, zone, status }) => <tr aria-label={`View product ${product.sku}: ${product.name}`} className="inventory-row-link" key={product.sku} onClick={() => openProduct(product.sku)} onKeyDown={(event) => handleRowKeyDown(event, product.sku)} role="link" tabIndex={0}>
             <td className="inventory-sku">{product.sku}</td><td>{product.name}</td><td>{product.category}</td><td>{product.onHand} {product.unit}</td><td>{product.locationId}{zone ? ` · Zone ${zone}` : ''}</td><td>{product.reorderPoint} {product.unit}</td><td><StatusBadge status={status} /></td>
           </tr>)}</tbody></table></div>
-          <div aria-label="Inventory products" className="inventory-cards">{rows.map(({ product, zone, status }) => <article className="inventory-product-card" key={product.sku}>
+          <div aria-label="Inventory products" className="inventory-cards">{rows.map(({ product, zone, status }) => <article aria-label={`View product ${product.sku}: ${product.name}`} className="inventory-product-card inventory-product-card-link" key={product.sku} onClick={() => openProduct(product.sku)} onKeyDown={(event) => handleRowKeyDown(event, product.sku)} role="link" tabIndex={0}>
             <div className="inventory-card-heading"><div><strong>{product.name}</strong><span>{product.sku}</span></div><StatusBadge status={status} /></div>
             <dl><div><dt>Category</dt><dd>{product.category}</dd></div><div><dt>On-hand</dt><dd>{product.onHand} {product.unit}</dd></div><div><dt>Location</dt><dd>{product.locationId}{zone ? ` · Zone ${zone}` : ''}</dd></div><div><dt>Reorder point</dt><dd>{product.reorderPoint} {product.unit}</dd></div></dl>
           </article>)}</div>
