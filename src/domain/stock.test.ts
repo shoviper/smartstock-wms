@@ -187,4 +187,15 @@ describe('seed data integrity', () => {
       expect(history.at(-1)?.qtyAfter).toBe(product.onHand);
     }
   });
+
+  it('references an existing Product for every SKU in every Order', () => {
+    const productSkus = new Set(Object.keys(seedBusinessData.products));
+    const orderLines = Object.values(seedBusinessData.orders).flatMap((order) => order.lines);
+    const missingProductSkus = orderLines
+      .map((line) => line.sku)
+      .filter((sku) => !productSkus.has(sku));
+
+    expect(orderLines.length).toBeGreaterThan(0);
+    expect(missingProductSkus).toEqual([]);
+  });
 });
