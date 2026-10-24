@@ -50,6 +50,8 @@ export interface Order {
   priority: OrderPriority;
   status: OrderStatus;
   lines: OrderLine[];
+  startedAt?: string | null;
+  assignedTo?: string | null;
   shortageReason?: string;
 }
 

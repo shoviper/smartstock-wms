@@ -52,6 +52,25 @@ describe('versioned localStorage persistence', () => {
     expect(loadStoreState(storage).products['SKU-001'].reorderPoint).toBe(42);
   });
 
+  it('migrates legacy v1 orders while preserving saved order and stock data', () => {
+    const storage = createMemoryStorage();
+    const base = createInitialStoreState();
+    const orderId = 'ORD-2026-0001';
+    const savedOrder = { ...base.orders[orderId], lines: base.orders[orderId].lines.map((line) => ({ ...line, pickedQty: 1 })) };
+    const savedState = {
+      ...base,
+      products: { ...base.products, 'SKU-001': { ...base.products['SKU-001'], onHand: 77 } },
+      orders: { ...base.orders, [orderId]: savedOrder },
+      movements: [...base.movements],
+    };
+    storage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, state: savedState }));
+
+    const loaded = loadStoreState(storage);
+    expect(loaded.products['SKU-001'].onHand).toBe(77);
+    expect(loaded.orders[orderId]).toMatchObject({ ...savedOrder, startedAt: null, assignedTo: null });
+    expect(loaded.movements).toEqual(savedState.movements);
+  });
+
   it('falls back to seed data when the stored version is unsupported', () => {
     const storage = createMemoryStorage();
     storage.setItem(STORAGE_KEY, JSON.stringify({ version: STORE_VERSION + 1, state: {} }));

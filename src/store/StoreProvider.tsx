@@ -11,12 +11,14 @@ import {
 } from '../domain/stock';
 import type { StoreState, Theme, User } from '../domain/models';
 import { InventoryActionError, updateReorderPoint as updateProductReorderPoint } from '../domain/inventory';
+import { OrderActionError, startPicking as startOrderPicking } from '../domain/orders';
 import { loadStoreState, persistStoreState } from './persistence';
 
 type StoreAction =
   | { type: 'stock/receive'; input: ReceiveStockInput }
   | { type: 'stock/pick'; input: PickItemInput }
   | { type: 'stock/adjust'; input: AdjustStockInput }
+  | { type: 'orders/start-picking'; orderId: string; userId: string }
   | { type: 'inventory/reorder-point'; sku: string; reorderPoint: number }
   | { type: 'session/login'; user: User }
   | { type: 'session/logout' }
@@ -44,6 +46,15 @@ function runInventoryAction(state: StoreState, operation: () => StoreState): Sto
   }
 }
 
+function runOrderAction(state: StoreState, operation: () => StoreState): StoreState {
+  try {
+    return { ...operation(), feedback: { kind: 'success', message: 'Picking started.' } };
+  } catch (error) {
+    const message = error instanceof OrderActionError ? error.message : 'The order action could not be completed.';
+    return { ...state, feedback: { kind: 'error', message } };
+  }
+}
+
 export function storeReducer(state: StoreState, action: StoreAction): StoreState {
   switch (action.type) {
     case 'stock/receive':
@@ -52,6 +63,8 @@ export function storeReducer(state: StoreState, action: StoreAction): StoreState
       return runStockAction(state, () => pickItem(state, action.input));
     case 'stock/adjust':
       return runStockAction(state, () => adjustStock(state, action.input));
+    case 'orders/start-picking':
+      return runOrderAction(state, () => startOrderPicking(state, action));
     case 'inventory/reorder-point':
       return runInventoryAction(state, () => updateProductReorderPoint(state, action.sku, action.reorderPoint));
     case 'session/login':
@@ -82,6 +95,7 @@ export interface StoreContextValue {
   receiveStock(input: ReceiveStockInput): void;
   pickItem(input: PickItemInput): void;
   adjustStock(input: AdjustStockInput): void;
+  startPicking(orderId: string): void;
   updateReorderPoint(sku: string, reorderPoint: number): void;
   login(user: User): void;
   logout(): void;
@@ -105,6 +119,7 @@ export function StoreProvider({ children }: PropsWithChildren) {
     receiveStock: (input) => dispatch({ type: 'stock/receive', input }),
     pickItem: (input) => dispatch({ type: 'stock/pick', input }),
     adjustStock: (input) => dispatch({ type: 'stock/adjust', input }),
+    startPicking: (orderId) => dispatch({ type: 'orders/start-picking', orderId, userId: state.session?.id ?? '' }),
     updateReorderPoint: (sku, reorderPoint) => dispatch({ type: 'inventory/reorder-point', sku, reorderPoint }),
     login: (user) => dispatch({ type: 'session/login', user }),
     logout: () => dispatch({ type: 'session/logout' }),

@@ -1,7 +1,7 @@
 import { createSeedBusinessData } from '../data/seed';
 import type { StoreState, Theme } from '../domain/models';
 
-export const STORE_VERSION = 1;
+export const STORE_VERSION = 2;
 export const STORAGE_KEY = 'smartstock-wms-store';
 
 export interface PersistedStoreEnvelope {
@@ -58,7 +58,7 @@ export function loadStoreState(storage = getBrowserStorage()): StoreState {
     const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object') return createInitialStoreState();
     const envelope = parsed as Partial<PersistedStoreEnvelope>;
-    if (envelope.version !== STORE_VERSION || !isPersistedState(envelope.state)) {
+    if ((envelope.version !== 1 && envelope.version !== STORE_VERSION) || !isPersistedState(envelope.state)) {
       return createInitialStoreState();
     }
     const seedData = createSeedBusinessData();
@@ -78,10 +78,19 @@ export function loadStoreState(storage = getBrowserStorage()): StoreState {
         ? { ...movement, locationId: product.locationId }
         : movement;
     });
+    const orders = Object.fromEntries(Object.entries(envelope.state.orders).map(([orderId, order]) => [
+      orderId,
+      {
+        ...order,
+        startedAt: order.startedAt ?? null,
+        assignedTo: order.assignedTo ?? null,
+      },
+    ]));
     return {
       ...envelope.state,
       products,
       locations: seedData.locations,
+      orders,
       movements,
       session: envelope.state.session ?? null,
       feedback: null,
