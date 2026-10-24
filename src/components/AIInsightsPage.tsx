@@ -1,17 +1,24 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
+  buildManagerSummary,
   filterStockoutPredictions,
   getStockoutMethodSummary,
   selectStockoutInsights,
   type StockoutRisk,
   type StockoutRiskFilter,
+  type ManagerIssueSeverity,
 } from '../domain/insights';
 import type { StockStatus } from '../domain/models';
 import { useStore } from '../store/StoreProvider';
 
 const riskOrder: StockoutRisk[] = ['STOCKED_OUT', 'HIGH', 'AT_RISK', 'WATCH', 'OK', 'NO_RECENT_DEMAND'];
-const insightSections = [{ id: 'stockout-prediction', label: 'Stockout Prediction' }];
+const insightSections = [
+  { id: 'manager-summary', label: 'Manager Summary' },
+  { id: 'stockout-prediction', label: 'Stockout Prediction' },
+];
+const severityOrder: ManagerIssueSeverity[] = ['CRITICAL', 'HIGH', 'MEDIUM'];
+const severityLabels: Record<ManagerIssueSeverity, string> = { CRITICAL: 'Critical', HIGH: 'High', MEDIUM: 'Medium' };
 const riskLabels: Record<StockoutRisk, string> = {
   STOCKED_OUT: 'Stocked out', HIGH: 'High', AT_RISK: 'At risk', WATCH: 'Watch', OK: 'OK', NO_RECENT_DEMAND: 'No recent demand',
 };
@@ -32,6 +39,7 @@ export function AIInsightsPage() {
   }, []);
 
   const insights = useMemo(() => selectStockoutInsights(state, now), [state, now]);
+  const managerSummary = useMemo(() => buildManagerSummary(state, now), [state, now]);
   const visibleRows = useMemo(() => filterStockoutPredictions(insights.predictions, riskFilter), [insights.predictions, riskFilter]);
   const method = useMemo(() => getStockoutMethodSummary(), []);
 
@@ -41,7 +49,7 @@ export function AIInsightsPage() {
       <div className="insights-page-heading">
         <div>
           <h1>AI Insights</h1>
-          <p className="intro">Stockout Prediction from recent warehouse activity.</p>
+          <p className="intro">Simulated, rule-based insights from current warehouse data.</p>
         </div>
         <div className="insights-as-of">
           <span>Simulated data — concept only</span>
@@ -54,6 +62,42 @@ export function AIInsightsPage() {
           {insightSections.map((section) => <a href={`#${section.id}`} key={section.id}>{section.label}</a>)}
         </nav>
       )}
+
+      <section aria-labelledby="manager-summary-title" className="insights-section manager-summary" id="manager-summary">
+        <div className="insights-section-heading">
+          <div>
+            <h2 id="manager-summary-title">Manager Summary</h2>
+            <p>Current warehouse issues grouped by severity.</p>
+          </div>
+        </div>
+        <div className="manager-summary-overview">
+          <div className="manager-summary-lead">
+            <p>{managerSummary.summaryText}</p>
+            <h3>Do first</h3>
+            {managerSummary.doFirst.length === 0 ? <p className="manager-summary-good-news">No urgent issues. Current rules found nothing requiring attention.</p> : (
+              <ol>{managerSummary.doFirst.map((issue) => <li key={issue.id}><span className={`manager-issue-badge manager-issue-${issue.severity.toLowerCase()}`}>{severityLabels[issue.severity]}</span><Link to={issue.href}>{issue.title}</Link><small>{issue.nextAction}</small></li>)}</ol>
+            )}
+          </div>
+          <div className="manager-summary-explanation">
+            <span className="insights-as-of manager-summary-concept">Simulated data — concept only</span>
+            <h3>How this summary works</h3>
+            <p>{managerSummary.explanation}</p>
+            <p>{managerSummary.reviewNote}</p>
+          </div>
+        </div>
+        <div className="manager-summary-groups">
+          {severityOrder.map((severity, index) => {
+            const issues = managerSummary.bySeverity[severity];
+            return <details className="manager-issue-group" key={severity} open={index === 0 && issues.length > 0}>
+              <summary><span className={`manager-issue-badge manager-issue-${severity.toLowerCase()}`}>{severityLabels[severity]}</span><strong>{issues.length}</strong><span>issues</span></summary>
+              {issues.length === 0 ? <p className="manager-group-empty">No {severityLabels[severity].toLowerCase()} issues.</p> : <ul>{issues.map((issue) => <li key={issue.id}>
+                <div className="manager-issue-heading"><strong>{issue.title}</strong><Link to={issue.href}>View details</Link></div>
+                <p>{issue.reason}</p><small>{issue.nextAction}</small>
+              </li>)}</ul>}
+            </details>;
+          })}
+        </div>
+      </section>
 
       <section aria-labelledby="stockout-prediction-title" className="insights-section" id="stockout-prediction">
         <div className="insights-section-heading">

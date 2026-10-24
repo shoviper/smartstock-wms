@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Order, StoreState } from '../domain/models';
-import { selectStockoutInsights } from '../domain/insights';
+import { buildManagerSummary, selectStockoutInsights } from '../domain/insights';
 import { createInitialStoreState } from '../store/persistence';
 import { storeReducer } from '../store/StoreProvider';
 
@@ -46,5 +46,31 @@ describe('Stockout Prediction store flow', () => {
     expect(after.pickedUnits30Days).toBe(before.pickedUnits30Days + 1);
     expect(after.averageDailyUse).toBe(before.averageDailyUse + 1 / 30);
     expect(after.daysOfSupply).toBeLessThan(before.daysOfSupply!);
+  });
+});
+
+describe('Manager Summary store flow', () => {
+  it('removes a Critical stock issue after receive moves a SKU above its reorder point', () => {
+    const initial = createInitialStoreState();
+    const receiver = Object.values(initial.users).find((user) => user.role === 'RECEIVER')!;
+    const sku = 'SKU-040';
+    const product = initial.products[sku];
+    const state: StoreState = {
+      ...initial,
+      currentUserId: receiver.id,
+      session: receiver,
+      products: { ...initial.products, [sku]: { ...product, onHand: 5, reorderPoint: 10 } },
+    };
+    const now = new Date();
+    const before = buildManagerSummary(state, now);
+    const received = storeReducer(state, {
+      type: 'stock/receive',
+      input: { sku, quantity: 6, userId: receiver.id, locationId: product.locationId, timestamp: now.toISOString(), movementId: 'movement-manager-summary-receive' },
+    });
+    const after = buildManagerSummary(received, now);
+
+    expect(before.issues.find((issue) => issue.entityId === sku)?.severity).toBe('HIGH');
+    expect(received.products[sku].onHand).toBe(11);
+    expect(after.issues.some((issue) => issue.entityId === sku)).toBe(false);
   });
 });

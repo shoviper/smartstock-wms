@@ -54,3 +54,15 @@
 | 6 | Manager / Admin | หยิบสินค้าใน Order แล้วกลับมา AI Insights | ค่า PICK เฉลี่ย/วันและ days of supply เปลี่ยนตาม store | ☐ ผ่าน / ☐ ไม่ผ่าน |
 | 7 | Manager / Admin | ทดสอบ desktop, mobile ~375px, Light/Dark และ empty/filter state | ตารางเลื่อนได้บนจอระดับกลางหรือแสดงการ์ดบนมือถือ; ข้อความและ badges อ่านได้ทุกธีม | ☐ ผ่าน / ☐ ไม่ผ่าน |
 | 8 | Manager / Admin | ใช้ Reset demo data หลังยืนยัน (ถ้าต้องการ seed ชุดใหม่) | โหลด risk examples ชุดใหม่; session/theme คงเดิม; เข้าใจว่าข้อมูลธุรกิจเดิมถูก reset | ☐ ผ่าน / ☐ ไม่ผ่าน |
+
+## Round 4c — Manager Summary
+
+| ขั้น | Role | สิ่งที่ให้ทดสอบ | ผลที่ควรเห็น | ผล |
+|---:|---|---|---|---|
+| 1 | Manager / Admin | เปิด `/ai-insights` | Manager Summary อยู่เหนือ Stockout Prediction; ป้าย simulated data แสดงในแผงอธิบาย และเมนูลัดมีทั้งสองส่วน | ☐ ผ่าน / ☐ ไม่ผ่าน |
+| 2 | Manager / Admin | ตรวจการ์ด Do first และกลุ่ม Critical / High / Medium | ข้อความสรุปใช้จำนวนจริง; Do first มีไม่เกิน 3 รายการ; กลุ่มยุบ/ขยายได้และเรียง severity | ☐ ผ่าน / ☐ ไม่ผ่าน |
+| 3 | Manager / Admin | ตรวจ SKU Out ที่มี open demand, SKU เสี่ยง, Critical/Low, Order overdue/due soon, short pick และ Large adjustment | แต่ละ issue มีเหตุผล/ตัวเลขจริง, next action และลิงก์; SKU/Order เดียวไม่ซ้ำและใช้ severity สูงสุด | ☐ ผ่าน / ☐ ไม่ผ่าน |
+| 4 | Manager / Admin | ตรวจ Short pick ใน 7 วันย้อนหลัง | นับ Order ที่ completedAt อยู่ในช่วงรวมขอบเขต 7 วันและมี shortQty > 0; ข้อความระบุว่าใช้เวลาปิด Order เป็นตัวแทน ไม่อ้างเวลาเกิด short | ☐ ผ่าน / ☐ ไม่ผ่าน |
+| 5 | Manager / Admin | Receive สินค้าจนพ้น Critical หรือแก้ข้อมูลให้ไม่มี issue | จำนวนและรายการ Manager Summary เปลี่ยนจาก store; ไม่มีประเด็นแสดง “No urgent issues” | ☐ ผ่าน / ☐ ไม่ผ่าน |
+| 6 | Picker / Receiver | เปิด `/ai-insights` โดยตรง | ถูก redirect ตาม Role และไม่มี AI Insights ในเมนู | ☐ ผ่าน / ☐ ไม่ผ่าน |
+| 7 | Manager / Admin | ตรวจจอแคบและ Light/Dark | การ์ด/กลุ่มอ่านได้ ไม่มีการพึ่งสีอย่างเดียว และปุ่ม/ลิงก์กดได้ | ☐ ผ่าน / ☐ ไม่ผ่าน |
