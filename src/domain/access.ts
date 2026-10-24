@@ -72,6 +72,7 @@ export function getRoleHomePath(role: Role): AppPath {
 }
 
 export function canAccessRoute(role: Role, path: string): boolean {
+  if (path === '/receiving') return role !== 'PICKER';
   const hasInventoryAccess = getRoleMenu(role).some((group) => group.items.some((menuItem) => menuItem.path === '/inventory'));
   if (hasInventoryAccess && /^\/inventory\/[^/]+$/.test(path)) return true;
   return getRoleMenu(role).some((group) => group.items.some((menuItem) => menuItem.path === path));

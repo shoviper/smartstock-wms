@@ -42,7 +42,30 @@ describe('stock actions', () => {
     });
 
     expect(result.state.products['SKU-010'].onHand).toBe(70);
-    expect(result.movement).toMatchObject({ type: 'RECEIVE', qty: 20, qtyBefore: 50, qtyAfter: 70, reference: 'ASN-100' });
+    expect(result.movement).toMatchObject({ type: 'RECEIVE', sku: 'SKU-010', qty: 20, qtyBefore: 50, qtyAfter: 70, locationId: state.products['SKU-010'].locationId, userId: receiverId, reference: 'ASN-100' });
+    expect(result.movement?.reason).toBe('Stock received');
+  });
+
+  it('blocks receiving beyond assigned location capacity and reports remaining capacity', () => {
+    const base = stateWithProduct('SKU-010', 50);
+    const capacity = base.locations[base.products['SKU-010'].locationId].capacity;
+    const state = { ...base, products: { ...base.products, 'SKU-010': { ...base.products['SKU-010'], onHand: capacity - 2 } } };
+    expect(() => receiveStock(state, { sku: 'SKU-010', quantity: 3, userId: receiverId })).toThrowError(
+      expect.objectContaining({ code: 'CAPACITY_EXCEEDED', message: expect.stringContaining('2 more units') }),
+    );
+  });
+
+  it('rejects receive quantities that are not positive whole numbers', () => {
+    const state = stateWithProduct('SKU-010', 10);
+    for (const quantity of [0, -1, 1.5]) {
+      expect(() => receiveStock(state, { sku: 'SKU-010', quantity, userId: receiverId })).toThrowError(expect.objectContaining({ code: 'INVALID_QUANTITY' }));
+    }
+  });
+
+  it('rejects unknown SKUs and Picker receive actions', () => {
+    const state = stateWithProduct('SKU-010', 10);
+    expect(() => receiveStock(state, { sku: 'SKU-MISSING', quantity: 1, userId: receiverId })).toThrowError(expect.objectContaining({ code: 'UNKNOWN_SKU' }));
+    expect(() => receiveStock(state, { sku: 'SKU-010', quantity: 1, userId: pickerId })).toThrowError(expect.objectContaining({ code: 'FORBIDDEN' }));
   });
 
   it('Flow 2: picks stock, links Movement to the order, and completes its final line', () => {

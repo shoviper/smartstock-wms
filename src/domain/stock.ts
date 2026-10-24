@@ -19,7 +19,8 @@ export type StockErrorCode =
   | 'ORDER_LINE_NOT_FOUND'
   | 'PICK_EXCEEDS_REMAINING'
   | 'REASON_REQUIRED'
-  | 'FORBIDDEN';
+  | 'FORBIDDEN'
+  | 'CAPACITY_EXCEEDED';
 
 export class StockActionError extends Error {
   readonly code: StockErrorCode;
@@ -139,10 +140,24 @@ function applyStockChange(state: StoreState, input: StockChangeInput): StockActi
 
 export function receiveStock(state: StoreState, input: ReceiveStockInput): StockActionResult {
   requirePositiveInteger(input.quantity);
+  const product = state.products[input.sku];
+  if (!product) throw new StockActionError('UNKNOWN_SKU', `Unknown SKU: ${input.sku}`);
+  const user = requireValidUser(state, input.userId);
+  if (!['RECEIVER', 'MANAGER', 'ADMIN'].includes(user.role)) {
+    throw new StockActionError('FORBIDDEN', 'Only a Receiver, Manager, or Admin can receive stock.');
+  }
+  const locationId = product.locationId;
+  const location = state.locations[locationId];
+  if (!location) throw new StockActionError('UNKNOWN_LOCATION', `Unknown location: ${locationId}`);
+  const availableCapacity = Math.max(0, location.capacity - product.onHand);
+  if (input.quantity > availableCapacity) {
+    throw new StockActionError('CAPACITY_EXCEEDED', `This location can receive ${availableCapacity} more units.`);
+  }
   return applyStockChange(state, {
     ...input,
     type: 'RECEIVE',
     signedQty: input.quantity,
+    locationId,
     reason: input.reason?.trim() || 'Stock received',
   });
 }

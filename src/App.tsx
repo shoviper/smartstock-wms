@@ -4,6 +4,7 @@ import { AppLayout } from './components/AppLayout';
 import { LoginPage } from './components/LoginPage';
 import { InventoryPage } from './components/InventoryPage';
 import { ProductDetailPage } from './components/ProductDetailPage';
+import { ReceivingPage } from './components/ReceivingPage';
 import { getRouteRedirect, ALL_MENU_ITEMS } from './domain/access';
 import { useStore } from './store/StoreProvider';
 
@@ -35,8 +36,9 @@ export default function App() {
       <Routes>
         <Route element={<ProductDetailPage />} path="/inventory/:sku" />
         <Route element={<InventoryPage />} path="/inventory" />
+        <Route element={<ReceivingPage />} path="/receiving" />
         {ALL_MENU_ITEMS.map(({ path, label }) => (
-          path === '/inventory' ? null : <Route element={<PagePlaceholder label={label} />} key={path} path={path} />
+          path === '/inventory' || path === '/receiving' ? null : <Route element={<PagePlaceholder label={label} />} key={path} path={path} />
         ))}
         <Route element={<Navigate replace to="/" />} path="*" />
       </Routes>

@@ -25,6 +25,7 @@ describe('role-based access rules', () => {
 
   it('allows routes from the role menu and rejects restricted or unknown routes', () => {
     expect(canAccessRoute('PICKER', '/orders')).toBe(true);
+    expect(canAccessRoute('PICKER', '/receiving')).toBe(false);
     expect(canAccessRoute('RECEIVER', '/receiving')).toBe(true);
     expect(canAccessRoute('PICKER', '/inventory/SKU-001')).toBe(true);
     expect(canAccessRoute('RECEIVER', '/inventory/SKU-001')).toBe(true);
@@ -42,6 +43,7 @@ describe('role-based access rules', () => {
     expect(getRouteRedirect(null, '/inventory')).toBe('/login');
     expect(getRouteRedirect(picker, '/inventory/SKU-001')).toBeNull();
     expect(getRouteRedirect(picker, '/')).toBe('/orders');
+    expect(getRouteRedirect(picker, '/receiving')).toBe('/orders');
     expect(getRouteRedirect(manager, '/users')).toBe('/');
     expect(getRouteRedirect(manager, '/unknown')).toBe('/');
     expect(getRouteRedirect(manager, '/reports')).toBeNull();
