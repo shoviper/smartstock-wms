@@ -32,6 +32,7 @@ export function ProductDetailPage() {
   const [submitted, setSubmitted] = useState(false);
   const canEditReorderPoint = state.session?.role === 'MANAGER' || state.session?.role === 'ADMIN';
   const canReceiveStock = ['RECEIVER', 'MANAGER', 'ADMIN'].includes(state.session?.role ?? '');
+  const canViewMovements = state.session?.role === 'MANAGER' || state.session?.role === 'ADMIN';
 
   useEffect(() => {
     if (product) setReorderPointDraft(String(product.reorderPoint));
@@ -81,6 +82,7 @@ export function ProductDetailPage() {
       <header className="product-detail-header">
         <div><p className="eyebrow">SMARTSTOCK WMS · PRODUCT DETAIL</p><h1>{product.name}</h1><p className="product-detail-subtitle">{product.sku} <span>·</span> {product.category}</p></div>
         {canReceiveStock && <Link className="product-primary-link" to={`/receiving?sku=${encodeURIComponent(product.sku)}`}>Receive stock</Link>}
+        {canViewMovements && <Link className="product-secondary-link" to={`/stock-movements?sku=${encodeURIComponent(product.sku)}`}>View all in Stock Movements</Link>}
         <StatusBadge status={stockStatus} />
       </header>
 

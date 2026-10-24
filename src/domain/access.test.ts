@@ -27,6 +27,10 @@ describe('role-based access rules', () => {
     expect(canAccessRoute('PICKER', '/orders')).toBe(true);
     expect(canAccessRoute('PICKER', '/receiving')).toBe(false);
     expect(canAccessRoute('RECEIVER', '/receiving')).toBe(true);
+    expect(canAccessRoute('MANAGER', '/stock-movements')).toBe(true);
+    expect(canAccessRoute('ADMIN', '/stock-movements')).toBe(true);
+    expect(canAccessRoute('PICKER', '/stock-movements')).toBe(false);
+    expect(canAccessRoute('RECEIVER', '/stock-movements')).toBe(false);
     expect(canAccessRoute('PICKER', '/inventory/SKU-001')).toBe(true);
     expect(canAccessRoute('RECEIVER', '/inventory/SKU-001')).toBe(true);
     expect(canAccessRoute('PICKER', '/inventory/SKU-001/extra')).toBe(false);
@@ -44,6 +48,9 @@ describe('role-based access rules', () => {
     expect(getRouteRedirect(picker, '/inventory/SKU-001')).toBeNull();
     expect(getRouteRedirect(picker, '/')).toBe('/orders');
     expect(getRouteRedirect(picker, '/receiving')).toBe('/orders');
+    expect(getRouteRedirect(picker, '/stock-movements')).toBe('/orders');
+    const receiver = { id: 'receiver-01', name: 'Receiver Demo', role: 'RECEIVER' as const };
+    expect(getRouteRedirect(receiver, '/stock-movements')).toBe('/receiving');
     expect(getRouteRedirect(manager, '/users')).toBe('/');
     expect(getRouteRedirect(manager, '/unknown')).toBe('/');
     expect(getRouteRedirect(manager, '/reports')).toBeNull();

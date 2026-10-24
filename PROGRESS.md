@@ -9,7 +9,7 @@
 | 0 | Plan (no code) | Complete — plan approved |
 | 1 | Foundation: seed data, central store, Login + Role, Layout, Light/Dark, deploy | Complete — ผู้ใช้ยืนยันว่า deploy แล้ว |
 | 2 | Inventory + Product Detail | Complete — Steps 2a and 2b complete |
-| 3 | Receiving, Orders & Picking, Stock Movements, Stock Adjustment | In progress — Step 3a Receiving complete |
+| 3 | Receiving, Orders & Picking, Stock Movements, Stock Adjustment | In progress — Steps 3a Receiving and 3b Stock Movements complete |
 | 4 | Dashboard + AI Insights | Not started |
 | 5 | Reports, Users & Roles, Settings, mobile picking, polish | Not started |
 
@@ -37,6 +37,8 @@
 - `src/components/InventoryPage.tsx`: read-only Inventory view with URL-backed search/category/multi-status/Zone filters, clickable status count cards, accessible sortable table headers, sub-820px product cards, and a shared filter reset used by the result toolbar and empty state. Result toolbar keeps its height when Clear filters is hidden and aligns the count left with the ghost reset action right; the action uses a fixed-size SVG icon. Rows and cards retain query state when opening Product Detail.
 - `src/components/ProductDetailPage.tsx`: responsive Product Detail with stock/location/capacity data, a status-colored stock bar with endpoint scale and wrapping four-item shape-coded legend, role-guarded reorder point edit with inline validation, open orders, and paginated Movement history; missing SKUs show a not-found state with return navigation. Secondary gray text uses `--text-soft` (contrast at least 5.37:1 in Light and 7.33:1 in Dark on the page surfaces).
 - `src/components/ReceivingPage.tsx`: Round 3 Step 3a Receiving form with shared searchable SKU combobox, raw-string whole-number validation, product/location/capacity/status summary, projected on-hand/status preview, reference/note fields, duplicate-submit guard, success feedback and Product Detail link; latest 10 RECEIVE Movements are shown from central store with desktop column headings/mobile labels. Query `?sku=` preselects the product.
+- `src/components/StockMovementsPage.tsx`: Round 3 Step 3b audit view backed by central-store Movements, URL-backed time/type/SKU/name/user/reference filters, sortable columns, filtered summary, 25-row pagination, empty/reset state, desktop table and narrow-screen cards. Manager/Admin can open both `/movements` (menu) and `/stock-movements` (shareable Product Detail link); other roles are redirected.
+- `src/domain/movements.ts`: pure Movement row selection, filtering, sorting, summary, pagination and URL query helpers; relative ranges receive `now` as an argument.
 - `src/components/SkuCombobox.tsx`: reusable accessible SKU combobox with keyboard navigation, selected-item restoration, clear action, and Light/Dark themed product list.
 - `src/domain/validation.ts`: `parseWholeNumber` accepts trimmed ASCII digits only and returns only safe integers; `src/domain/validation.test.ts` covers accepted and rejected syntax.
 - `src/domain/skuSearch.ts`: case-insensitive pure filter across SKU and product name, covered by `src/domain/skuSearch.test.ts`.
@@ -50,6 +52,7 @@
 - `src/store/StoreProvider.tsx`: Context + reducer exposes stock actions, Login/Log Out, theme actions and Reset demo data. Reset replaces only products, orders and movements, preserving locations, users, session and theme.
 - `src/store/persistence.ts`: versioned localStorage envelope, key `smartstock-wms-store`, version `1`; persists current session and theme, accepts previous v1 data without a session, refreshes seeded products' categories/units/location IDs, Location records and Movement location IDs from seed while preserving onHand, reorder points, Movement quantity/type/timestamp fields, session and theme; falls back to seed for invalid/unsupported data. Feedback is transient and not persisted.
 - `src/domain/access.ts`: pure role-to-menu, role-to-home, route access/redirect and Demo Access session functions, covered by `src/domain/access.test.ts`.
+- `src/domain/movements.test.ts`: time/type/SKU-name/user/reference filters, combined filters, sorting, summary, pagination and URL query round-trip tests for Stock Movements.
 - `src/components/`: Login card, Sidebar/drawer, Topbar and shared brand. Other route content remains the existing placeholder.
 
 ## How to run / test
@@ -65,6 +68,7 @@
 - Round 3 Step 3a Receiving refinement checks: `npm run lint` passes; `npm run build` passes; `npm test` passes (76 tests across 7 files), including strict ASCII safe-integer parsing and case-insensitive SKU/name filtering.
 - Round 3 Step 3a manual checks: log in as Receiver/Manager/Admin, open Receiving, search by SKU and product name, verify location is read-only and capacity/status preview, receive a valid quantity and verify success link, clear form and Recent receipts; attempt a quantity above remaining capacity and confirm the remaining-unit error; open Product Detail and follow Receive stock with SKU prefilled; log in as Picker and verify Receiving is absent and a direct `/receiving` URL redirects to Orders & Picking; check on a narrow viewport for single-column fields and full-width button.
 - Round 3 Step 3a Receiving refinement checks: verify ASCII quantity parsing and inline errors for decimal/scientific/Unicode input, selected SKU combobox keyboard and clear behavior, capacity error before submit, status transition/no-change preview, and desktop/mobile Recent receipts labels.
+- Round 3 Step 3b checks: `npm run lint` passed; `npm run build` passed (TypeScript + Vite); `npm test` passed (88 tests across 8 files), covering pure movement filters/sort/summary/pagination/query and active-filter detection. Pagination uses layout-effect anchoring with automatic scroll and restores focus without scrolling; filter controls reuse Inventory typography and chip classes. Inventory and Stock Movements no-result states share `.filter-empty-state` typography, spacing and sizing; other empty states retain their existing styles. Manual browser verification remains pending for 3→2, 2→1 and 10→9→8 Previous behavior, Next behavior, reduced-motion/focus, Light/Dark and narrow cards.
 - Round 2 Step 2b manual checks: open a product from Inventory as each role and return with query state intact; verify unknown SKU state; check position-code parity, stock endpoint scale/legend and status colors; update reorder point as Manager/Admin, verify invalid/unchanged Save states, updated-message dismissal on edit and refresh persistence/status alerts; confirm Picker/Receiver read-only; inspect recent Movements and open Orders.
 
 ## Deployed URL
@@ -74,9 +78,10 @@
 - Demo dispatch coordinates model a simple straight-through warehouse path; validate distances and walking paths against a real warehouse layout before operational use.
 
 ## Next step
-- Round 3 Step 3a is complete. Continue only with the next Round 3 scope when requested; do not start Orders & Picking, Stock Movements or Stock Adjustment as part of Step 3a.
+- Round 3 Steps 3a and 3b are complete. Continue only with the next Round 3 scope when requested; do not start Stock Adjustment until requested.
 
 ## Backlog
+- Round 5 (if time permits): Inventory still shows all 40 products on one page. To align with Stock Movements, paginate 25 per page by extracting pagination into a shared component/hook. Not tied to a BR. Risk: may affect Stock Movements and Inventory's existing query state. Production inventory (~2,000 SKUs) needs pagination or virtual scroll.
 - Round 5 (or when Users & Roles is implemented): Movement.userId currently points to the seeded user for each Role (Demo login reuses IDs such as `user-receiver-01` = Jamie Chen), so new Movements display the seed user's name rather than the name entered at Login. Proposed fix: assign a unique ID to each session and store that user in `state.users`; verify legacy session loading and add tests for session identity, Movement recording, and displayed name. Medium effort, about 4–6 files. Not implemented now. Demo intentionally maps users by Role; production should link Movements to the authenticated account.
 - Round 2 follow-up: Use shared `parseWholeNumber` for the Product Detail Reorder point input to keep all numeric fields on the same validation rule. Its current integer-only regex rejects a raw `2.` string, so no direct partial-decimal bypass was found in code inspection.
 - Round 5: Move Copy paper (SKU-021) to Level 1 because paper is heavy; update its `locationId` in Movement records to match.

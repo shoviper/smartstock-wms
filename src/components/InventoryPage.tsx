@@ -68,7 +68,7 @@ export function InventoryPage() {
       </section>
       <div className="inventory-result-toolbar"><span aria-live="polite" className="inventory-result-count">{hasActiveInventoryFilters(filters) ? `${rows.length} of ${allRows.length} products` : `${allRows.length} products`}</span>{hasActiveInventoryFilters(filters) && rows.length > 0 && <button className="inventory-clear-link" onClick={clearFilters} type="button"><svg aria-hidden="true" viewBox="0 0 16 16"><path d="m4 4 8 8M12 4l-8 8" /></svg>Clear filters</button>}</div>
       {rows.length === 0 ? (
-        <section className="inventory-empty"><h2>No products found</h2><p>Try changing your search or filters.</p><button className="inventory-clear-button" onClick={clearFilters} type="button">Clear filters</button></section>
+        <section className="filter-empty-state"><h2>No products found</h2><p>Try changing your search or filters.</p><button className="inventory-clear-button" onClick={clearFilters} type="button">Clear filters</button></section>
       ) : (
         <>
           <div className="inventory-table-wrap"><table className="inventory-table"><thead><tr>
