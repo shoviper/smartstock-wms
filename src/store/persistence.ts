@@ -61,7 +61,31 @@ export function loadStoreState(storage = getBrowserStorage()): StoreState {
     if (envelope.version !== STORE_VERSION || !isPersistedState(envelope.state)) {
       return createInitialStoreState();
     }
-    return { ...envelope.state, session: envelope.state.session ?? null, feedback: null };
+    const seedData = createSeedBusinessData();
+    const seedProducts = seedData.products;
+    const products = Object.fromEntries(Object.entries(envelope.state.products).map(([sku, product]) => {
+      const seedProduct = seedProducts[sku];
+      if (!seedProduct) return [sku, product];
+      const category = seedProduct.category;
+      const unit = seedProduct.unit;
+      return [sku, product.category !== category || product.unit !== unit || product.locationId !== seedProduct.locationId
+        ? { ...product, category, unit, locationId: seedProduct.locationId }
+        : product];
+    }));
+    const movements = envelope.state.movements.map((movement) => {
+      const product = seedProducts[movement.sku];
+      return product && movement.locationId !== product.locationId
+        ? { ...movement, locationId: product.locationId }
+        : movement;
+    });
+    return {
+      ...envelope.state,
+      products,
+      locations: seedData.locations,
+      movements,
+      session: envelope.state.session ?? null,
+      feedback: null,
+    };
   } catch {
     return createInitialStoreState();
   }

@@ -7,37 +7,107 @@ import type {
   User,
 } from '../domain/models';
 
-const zoneNames = ['A', 'B', 'C', 'D'];
+const locationRows: Location[] = [
+  { id: 'A-01-01-1', zone: 'A', aisle: '01', rack: '01', level: 1, capacity: 120, coordinates: { x: 8, y: 4 }, dispatchDistanceMeters: 9 },
+  { id: 'A-01-02-1', zone: 'A', aisle: '01', rack: '02', level: 1, capacity: 100, coordinates: { x: 8, y: 8 }, dispatchDistanceMeters: 11 },
+  { id: 'A-01-03-1', zone: 'A', aisle: '01', rack: '03', level: 1, capacity: 100, coordinates: { x: 8, y: 12 }, dispatchDistanceMeters: 14 },
+  { id: 'A-02-01-2', zone: 'A', aisle: '02', rack: '01', level: 2, capacity: 100, coordinates: { x: 12, y: 4 }, dispatchDistanceMeters: 13 },
+  { id: 'A-02-02-2', zone: 'A', aisle: '02', rack: '02', level: 2, capacity: 100, coordinates: { x: 12, y: 8 }, dispatchDistanceMeters: 14 },
+  { id: 'A-02-03-2', zone: 'A', aisle: '02', rack: '03', level: 2, capacity: 100, coordinates: { x: 12, y: 12 }, dispatchDistanceMeters: 17 },
+  { id: 'A-01-04-3', zone: 'A', aisle: '01', rack: '04', level: 3, capacity: 150, coordinates: { x: 8, y: 16 }, dispatchDistanceMeters: 18 },
+  { id: 'A-02-04-3', zone: 'A', aisle: '02', rack: '04', level: 3, capacity: 150, coordinates: { x: 12, y: 16 }, dispatchDistanceMeters: 20 },
+  { id: 'A-01-05-1', zone: 'A', aisle: '01', rack: '05', level: 1, capacity: 120, coordinates: { x: 8, y: 20 }, dispatchDistanceMeters: 22 },
+  { id: 'A-02-05-2', zone: 'A', aisle: '02', rack: '05', level: 2, capacity: 120, coordinates: { x: 12, y: 20 }, dispatchDistanceMeters: 23 },
+  { id: 'B-01-01-1', zone: 'B', aisle: '01', rack: '01', level: 1, capacity: 120, coordinates: { x: 20, y: 4 }, dispatchDistanceMeters: 20 },
+  { id: 'B-01-02-1', zone: 'B', aisle: '01', rack: '02', level: 1, capacity: 100, coordinates: { x: 20, y: 8 }, dispatchDistanceMeters: 22 },
+  { id: 'B-02-01-2', zone: 'B', aisle: '02', rack: '01', level: 2, capacity: 100, coordinates: { x: 24, y: 4 }, dispatchDistanceMeters: 24 },
+  { id: 'B-02-02-2', zone: 'B', aisle: '02', rack: '02', level: 2, capacity: 100, coordinates: { x: 24, y: 8 }, dispatchDistanceMeters: 25 },
+  { id: 'B-01-03-1', zone: 'B', aisle: '01', rack: '03', level: 1, capacity: 120, coordinates: { x: 20, y: 12 }, dispatchDistanceMeters: 23 },
+  { id: 'B-02-03-2', zone: 'B', aisle: '02', rack: '03', level: 2, capacity: 100, coordinates: { x: 24, y: 12 }, dispatchDistanceMeters: 27 },
+  { id: 'B-01-04-1', zone: 'B', aisle: '01', rack: '04', level: 1, capacity: 120, coordinates: { x: 20, y: 16 }, dispatchDistanceMeters: 26 },
+  { id: 'B-02-04-2', zone: 'B', aisle: '02', rack: '04', level: 2, capacity: 120, coordinates: { x: 24, y: 16 }, dispatchDistanceMeters: 29 },
+  { id: 'B-01-05-1', zone: 'B', aisle: '01', rack: '05', level: 1, capacity: 120, coordinates: { x: 20, y: 20 }, dispatchDistanceMeters: 28 },
+  { id: 'B-02-05-2', zone: 'B', aisle: '02', rack: '05', level: 2, capacity: 120, coordinates: { x: 24, y: 20 }, dispatchDistanceMeters: 31 },
+  { id: 'C-01-01-1', zone: 'C', aisle: '01', rack: '01', level: 1, capacity: 120, coordinates: { x: 32, y: 4 }, dispatchDistanceMeters: 32 },
+  { id: 'C-01-02-1', zone: 'C', aisle: '01', rack: '02', level: 1, capacity: 100, coordinates: { x: 32, y: 8 }, dispatchDistanceMeters: 33 },
+  { id: 'C-02-01-2', zone: 'C', aisle: '02', rack: '01', level: 2, capacity: 100, coordinates: { x: 36, y: 4 }, dispatchDistanceMeters: 36 },
+  { id: 'C-02-02-2', zone: 'C', aisle: '02', rack: '02', level: 2, capacity: 100, coordinates: { x: 36, y: 8 }, dispatchDistanceMeters: 37 },
+  { id: 'C-01-03-3', zone: 'C', aisle: '01', rack: '03', level: 3, capacity: 150, coordinates: { x: 32, y: 12 }, dispatchDistanceMeters: 34 },
+  { id: 'C-02-03-3', zone: 'C', aisle: '02', rack: '03', level: 3, capacity: 150, coordinates: { x: 36, y: 12 }, dispatchDistanceMeters: 38 },
+  { id: 'C-01-04-1', zone: 'C', aisle: '01', rack: '04', level: 1, capacity: 120, coordinates: { x: 32, y: 16 }, dispatchDistanceMeters: 36 },
+  { id: 'C-02-04-2', zone: 'C', aisle: '02', rack: '04', level: 2, capacity: 120, coordinates: { x: 36, y: 16 }, dispatchDistanceMeters: 39 },
+  { id: 'C-01-05-3', zone: 'C', aisle: '01', rack: '05', level: 3, capacity: 150, coordinates: { x: 32, y: 20 }, dispatchDistanceMeters: 38 },
+  { id: 'C-02-05-1', zone: 'C', aisle: '02', rack: '05', level: 1, capacity: 120, coordinates: { x: 36, y: 20 }, dispatchDistanceMeters: 41 },
+  { id: 'D-01-01-1', zone: 'D', aisle: '01', rack: '01', level: 1, capacity: 120, coordinates: { x: 44, y: 4 }, dispatchDistanceMeters: 44 },
+  { id: 'D-01-02-2', zone: 'D', aisle: '01', rack: '02', level: 2, capacity: 100, coordinates: { x: 44, y: 8 }, dispatchDistanceMeters: 45 },
+  { id: 'D-02-01-2', zone: 'D', aisle: '02', rack: '01', level: 2, capacity: 120, coordinates: { x: 48, y: 4 }, dispatchDistanceMeters: 48 },
+  { id: 'D-02-02-3', zone: 'D', aisle: '02', rack: '02', level: 3, capacity: 150, coordinates: { x: 48, y: 8 }, dispatchDistanceMeters: 49 },
+  { id: 'D-01-03-1', zone: 'D', aisle: '01', rack: '03', level: 1, capacity: 120, coordinates: { x: 44, y: 12 }, dispatchDistanceMeters: 46 },
+  { id: 'D-02-03-2', zone: 'D', aisle: '02', rack: '03', level: 2, capacity: 100, coordinates: { x: 48, y: 12 }, dispatchDistanceMeters: 49 },
+  { id: 'D-01-04-3', zone: 'D', aisle: '01', rack: '04', level: 3, capacity: 150, coordinates: { x: 44, y: 16 }, dispatchDistanceMeters: 47 },
+  { id: 'D-02-04-3', zone: 'D', aisle: '02', rack: '04', level: 3, capacity: 150, coordinates: { x: 48, y: 16 }, dispatchDistanceMeters: 51 },
+  { id: 'D-01-05-1', zone: 'D', aisle: '01', rack: '05', level: 1, capacity: 120, coordinates: { x: 44, y: 20 }, dispatchDistanceMeters: 48 },
+  { id: 'D-02-05-2', zone: 'D', aisle: '02', rack: '05', level: 2, capacity: 120, coordinates: { x: 48, y: 20 }, dispatchDistanceMeters: 52 },
+];
 
-const locations: Location[] = zoneNames.flatMap((zone, zoneIndex) =>
-  [1, 2, 3].map((aisleIndex) => {
-    const x = 12 + zoneIndex * 18;
-    const y = aisleIndex * 14;
-    const id = `${zone}-${String(aisleIndex).padStart(2, '0')}-01-1`;
+const locations = locationRows;
 
-    return {
-      id,
-      zone,
-      aisle: String(aisleIndex).padStart(2, '0'),
-      rack: '01',
-      level: 1,
-      capacity: 120 + zoneIndex * 20 + aisleIndex * 10,
-      coordinates: { x, y },
-      dispatchDistanceMeters: Math.round(Math.hypot(x, y)),
-    };
-  }),
-);
+const productLocationBySku: Record<string, string> = {
+  'SKU-001': 'A-01-01-1', 'SKU-002': 'A-01-02-1', 'SKU-003': 'A-01-03-1',
+  'SKU-004': 'A-02-01-2', 'SKU-005': 'A-02-02-2',
+  'SKU-006': 'B-01-01-1', 'SKU-007': 'B-01-02-1', 'SKU-008': 'B-02-01-2', 'SKU-009': 'B-02-02-2',
+  'SKU-010': 'C-01-04-1',
+  'SKU-011': 'B-01-03-1', 'SKU-012': 'B-02-03-2', 'SKU-013': 'B-01-04-1', 'SKU-014': 'B-02-04-2', 'SKU-015': 'B-01-05-1',
+  'SKU-016': 'C-01-01-1', 'SKU-017': 'C-01-02-1', 'SKU-018': 'C-02-01-2', 'SKU-020': 'C-02-02-2',
+  'SKU-019': 'D-01-01-1', 'SKU-021': 'C-02-03-3', 'SKU-022': 'C-01-03-3', 'SKU-023': 'D-01-02-2', 'SKU-024': 'D-02-01-2',
+  'SKU-025': 'D-02-02-3',
+  'SKU-026': 'D-01-03-1', 'SKU-027': 'D-02-03-2', 'SKU-028': 'D-01-04-3', 'SKU-029': 'D-02-04-3', 'SKU-030': 'D-01-05-1',
+  'SKU-031': 'A-01-04-3', 'SKU-032': 'A-02-03-2', 'SKU-033': 'A-02-04-3', 'SKU-034': 'A-01-05-1', 'SKU-035': 'A-02-05-2',
+  'SKU-036': 'C-02-04-2', 'SKU-037': 'C-01-05-3', 'SKU-038': 'C-02-05-1',
+  'SKU-039': 'B-02-05-2', 'SKU-040': 'D-02-05-2',
+};
 
-const categories = ['Packaging', 'Electronics', 'Cleaning', 'Hardware', 'Office', 'Safety'];
-const productNames = [
-  'Carton box', 'Bubble wrap roll', 'Packing tape', 'Shipping label', 'Stretch film',
-  'USB keyboard', 'Wireless mouse', 'Power adapter', 'Ethernet cable', 'Barcode label roll',
-  'Floor cleaner', 'Hand soap', 'Microfiber cloth', 'Trash liner', 'Sanitizer bottle',
-  'Hex bolt set', 'Cable tie pack', 'Utility blade', 'Work gloves', 'Tool bit set',
-  'Copy paper', 'Marker pen', 'Document sleeve', 'Thermal paper roll', 'Clipboard',
-  'Safety glasses', 'Reflective vest', 'Dust mask', 'Ear plugs', 'First aid refill',
-  'Foam insert', 'Corner protector', 'Pallet wrap', 'Mailing envelope', 'Foam pouch',
-  'Laptop stand', 'HDMI cable', 'Power strip', 'Cleaning brush', 'Storage tote',
+const productCatalog: Omit<Product, 'locationId' | 'onHand' | 'reorderPoint' | 'leadTimeDays'>[] = [
+  { sku: 'SKU-001', name: 'Carton box', category: 'Packaging', unit: 'each' },
+  { sku: 'SKU-002', name: 'Bubble wrap roll', category: 'Packaging', unit: 'roll' },
+  { sku: 'SKU-003', name: 'Packing tape', category: 'Packaging', unit: 'roll' },
+  { sku: 'SKU-004', name: 'Shipping label', category: 'Packaging', unit: 'roll' },
+  { sku: 'SKU-005', name: 'Stretch film', category: 'Packaging', unit: 'roll' },
+  { sku: 'SKU-006', name: 'USB keyboard', category: 'Electronics', unit: 'each' },
+  { sku: 'SKU-007', name: 'Wireless mouse', category: 'Electronics', unit: 'each' },
+  { sku: 'SKU-008', name: 'Power adapter', category: 'Electronics', unit: 'each' },
+  { sku: 'SKU-009', name: 'Ethernet cable', category: 'Electronics', unit: 'each' },
+  { sku: 'SKU-010', name: 'Barcode label roll', category: 'Office', unit: 'roll' },
+  { sku: 'SKU-011', name: 'Floor cleaner', category: 'Cleaning', unit: 'bottle' },
+  { sku: 'SKU-012', name: 'Hand soap', category: 'Cleaning', unit: 'bottle' },
+  { sku: 'SKU-013', name: 'Microfiber cloth', category: 'Cleaning', unit: 'each' },
+  { sku: 'SKU-014', name: 'Trash liner', category: 'Cleaning', unit: 'roll' },
+  { sku: 'SKU-015', name: 'Sanitizer bottle', category: 'Cleaning', unit: 'bottle' },
+  { sku: 'SKU-016', name: 'Hex bolt set', category: 'Hardware', unit: 'set' },
+  { sku: 'SKU-017', name: 'Cable tie pack', category: 'Hardware', unit: 'pack' },
+  { sku: 'SKU-018', name: 'Utility blade', category: 'Hardware', unit: 'each' },
+  { sku: 'SKU-019', name: 'Work gloves', category: 'Safety', unit: 'pair' },
+  { sku: 'SKU-020', name: 'Tool bit set', category: 'Hardware', unit: 'set' },
+  { sku: 'SKU-021', name: 'Copy paper', category: 'Office', unit: 'ream' },
+  { sku: 'SKU-022', name: 'Marker pen', category: 'Office', unit: 'each' },
+  { sku: 'SKU-023', name: 'Document sleeve', category: 'Office', unit: 'each' },
+  { sku: 'SKU-024', name: 'Thermal paper roll', category: 'Office', unit: 'roll' },
+  { sku: 'SKU-025', name: 'Clipboard', category: 'Office', unit: 'each' },
+  { sku: 'SKU-026', name: 'Safety glasses', category: 'Safety', unit: 'each' },
+  { sku: 'SKU-027', name: 'Reflective vest', category: 'Safety', unit: 'each' },
+  { sku: 'SKU-028', name: 'Dust mask', category: 'Safety', unit: 'each' },
+  { sku: 'SKU-029', name: 'Ear plugs', category: 'Safety', unit: 'pair' },
+  { sku: 'SKU-030', name: 'First aid refill', category: 'Safety', unit: 'pack' },
+  { sku: 'SKU-031', name: 'Foam insert', category: 'Packaging', unit: 'each' },
+  { sku: 'SKU-032', name: 'Corner protector', category: 'Packaging', unit: 'each' },
+  { sku: 'SKU-033', name: 'Pallet wrap', category: 'Packaging', unit: 'roll' },
+  { sku: 'SKU-034', name: 'Mailing envelope', category: 'Packaging', unit: 'each' },
+  { sku: 'SKU-035', name: 'Foam pouch', category: 'Packaging', unit: 'each' },
+  { sku: 'SKU-036', name: 'Laptop stand', category: 'Electronics', unit: 'each' },
+  { sku: 'SKU-037', name: 'HDMI cable', category: 'Electronics', unit: 'each' },
+  { sku: 'SKU-038', name: 'Power strip', category: 'Electronics', unit: 'each' },
+  { sku: 'SKU-039', name: 'Cleaning brush', category: 'Cleaning', unit: 'each' },
+  { sku: 'SKU-040', name: 'Storage tote', category: 'Hardware', unit: 'each' },
 ];
 
 const targetOnHand = (index: number) => {
@@ -53,14 +123,10 @@ const reorderPointFor = (index: number) => {
   return 20 + (index % 3) * 5;
 };
 
-const productRows: Product[] = productNames.map((name, index) => {
-  const location = locations[index % locations.length];
+const productRows: Product[] = productCatalog.map((catalogProduct, index) => {
   return {
-    sku: `SKU-${String(index + 1).padStart(3, '0')}`,
-    name,
-    category: categories[index % categories.length],
-    unit: index % 5 === 0 ? 'roll' : 'each',
-    locationId: location.id,
+    ...catalogProduct,
+    locationId: productLocationBySku[catalogProduct.sku],
     onHand: targetOnHand(index),
     reorderPoint: reorderPointFor(index),
     leadTimeDays: 3 + (index % 9),
