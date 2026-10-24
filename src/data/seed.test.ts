@@ -99,16 +99,18 @@ describe('seed locations', () => {
     }
   });
 
-  it('places the highest-activity SKUs close to dispatch and on easy-pick levels', () => {
+  it('keeps the designated fast-pick SKUs close to dispatch and on easy-pick levels', () => {
     const picksBySku = new Map<string, number>();
     for (const movement of seedBusinessData.movements) {
       if (movement.type === 'PICK') {
         picksBySku.set(movement.sku, (picksBySku.get(movement.sku) ?? 0) + Math.abs(movement.qty));
       }
     }
-    const fastPicked = products.filter((product) => (picksBySku.get(product.sku) ?? 0) >= 10);
-    expect(fastPicked.map((product) => product.sku).sort()).toEqual(['SKU-001', 'SKU-002', 'SKU-003']);
+    const fastPickedSkus = ['SKU-001', 'SKU-002', 'SKU-003'];
+    const fastPicked = products.filter((product) => fastPickedSkus.includes(product.sku));
+    expect(fastPicked.map((product) => product.sku).sort()).toEqual(fastPickedSkus);
     for (const product of fastPicked) {
+      expect(picksBySku.get(product.sku) ?? 0).toBeGreaterThanOrEqual(10);
       const location = seedBusinessData.locations[product.locationId];
       expect(location.dispatchDistanceMeters).toBeLessThanOrEqual(15);
       expect(location.level).toBeLessThanOrEqual(2);

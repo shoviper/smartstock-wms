@@ -41,3 +41,16 @@
 | 7 | Manager / Admin | ตรวจ KPI วันนี้และกราฟ movement | คำนิยาม Asia/Bangkok แสดง; กราฟมี 14 วัน ป้ายวันที่และค่า RECEIVE/PICK | ☐ ผ่าน / ☐ ไม่ผ่าน |
 | 8 | Picker / Receiver | เปิด `/` โดยตรง | ถูก redirect ไปหน้าแรกของ Role และไม่มี Dashboard ในเมนู | ☐ ผ่าน / ☐ ไม่ผ่าน |
 | 9 | Manager / Admin | ตรวจหน้าจอกว้างและแคบ รวมถึง empty state | การ์ดและกราฟจัดวางอ่านได้; empty state แสดงเมื่อไม่มีข้อมูล | ☐ ผ่าน / ☐ ไม่ผ่าน |
+
+## Round 4b — Stockout Prediction
+
+| ขั้น | Role | สิ่งที่ให้ทดสอบ | ผลที่ควรเห็น | ผล |
+|---:|---|---|---|---|
+| 1 | Manager / Admin | เปิด `/ai-insights` และตรวจส่วนหัว | มีป้าย “Simulated data — concept only”, เวลา “As of ...” และเมนูลัด Stockout Prediction | ☐ ผ่าน / ☐ ไม่ผ่าน |
+| 2 | Picker / Receiver | เปิด `/ai-insights` โดยตรง | ถูก redirect ไปหน้าแรกของ Role; ไม่มี AI Insights ในเมนู | ☐ ผ่าน / ☐ ไม่ผ่าน |
+| 3 | Manager / Admin | ตรวจ SKU-007/008/009/016/023 และกด chip แต่ละระดับ | เห็น At risk 3, High 1, Watch 1; ตารางกรองตรงกับ chip และเรียงตามความเสี่ยง/วันของพอใช้ | ☐ ผ่าน / ☐ ไม่ผ่าน |
+| 4 | Manager / Admin | ขยาย Show calculation ในแต่ละแถว | สูตรและตัวเลขตรงกับค่า PICK 30 วัน, on-hand, lead time และจำนวนแนะนำ; เหตุผล/ขั้นต่อไปตรงกับข้อมูล | ☐ ผ่าน / ☐ ไม่ผ่าน |
+| 5 | Manager / Admin | เปิด View product จากแถว | ไปยัง `/inventory/:sku` ของ SKU นั้น | ☐ ผ่าน / ☐ ไม่ผ่าน |
+| 6 | Manager / Admin | หยิบสินค้าใน Order แล้วกลับมา AI Insights | ค่า PICK เฉลี่ย/วันและ days of supply เปลี่ยนตาม store | ☐ ผ่าน / ☐ ไม่ผ่าน |
+| 7 | Manager / Admin | ทดสอบ desktop, mobile ~375px, Light/Dark และ empty/filter state | ตารางเลื่อนได้บนจอระดับกลางหรือแสดงการ์ดบนมือถือ; ข้อความและ badges อ่านได้ทุกธีม | ☐ ผ่าน / ☐ ไม่ผ่าน |
+| 8 | Manager / Admin | ใช้ Reset demo data หลังยืนยัน (ถ้าต้องการ seed ชุดใหม่) | โหลด risk examples ชุดใหม่; session/theme คงเดิม; เข้าใจว่าข้อมูลธุรกิจเดิมถูก reset | ☐ ผ่าน / ☐ ไม่ผ่าน |

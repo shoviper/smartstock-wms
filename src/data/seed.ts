@@ -129,7 +129,9 @@ const productRows: Product[] = productCatalog.map((catalogProduct, index) => {
     locationId: productLocationBySku[catalogProduct.sku],
     onHand: targetOnHand(index),
     reorderPoint: reorderPointFor(index),
-    leadTimeDays: 3 + (index % 9),
+    leadTimeDays: catalogProduct.sku === 'SKU-016' || catalogProduct.sku === 'SKU-023'
+      ? 14
+      : 3 + (index % 9),
   };
 });
 
@@ -152,6 +154,15 @@ const orderLines: Order['lines'][] = orderStatuses.map(() => []);
 const now = new Date();
 
 const seedPickQty = (index: number) => {
+  const sku = productRows[index].sku;
+  const riskExamplePickQty: Record<string, number> = {
+    'SKU-007': 30,
+    'SKU-008': 32,
+    'SKU-009': 48,
+    'SKU-016': 82,
+    'SKU-023': 60,
+  };
+  if (sku in riskExamplePickQty) return riskExamplePickQty[sku];
   if (index >= 24) return 0;
   if (index < 3) return 10 + index;
   return 2 + (index % 5);

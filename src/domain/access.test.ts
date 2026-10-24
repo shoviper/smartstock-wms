@@ -8,8 +8,8 @@ describe('role-based access rules', () => {
   it.each([
     ['PICKER', ['/orders', '/inventory']],
     ['RECEIVER', ['/receiving', '/inventory']],
-    ['MANAGER', ['/', '/inventory', '/receiving', '/orders', '/movements', '/adjustment', '/insights', '/reports', '/settings']],
-    ['ADMIN', ['/', '/inventory', '/receiving', '/orders', '/movements', '/adjustment', '/insights', '/reports', '/users', '/settings']],
+    ['MANAGER', ['/', '/inventory', '/receiving', '/orders', '/movements', '/adjustment', '/ai-insights', '/reports', '/settings']],
+    ['ADMIN', ['/', '/inventory', '/receiving', '/orders', '/movements', '/adjustment', '/ai-insights', '/reports', '/users', '/settings']],
   ] as const)('%s sees only its configured menu items', (role, expectedPaths) => {
     expect(menuPaths(getRoleMenu(role as Role))).toEqual(expectedPaths);
   });
@@ -34,6 +34,11 @@ describe('role-based access rules', () => {
     expect(canAccessRoute('RECEIVER', '/receiving')).toBe(true);
     expect(canAccessRoute('MANAGER', '/stock-movements')).toBe(true);
     expect(canAccessRoute('ADMIN', '/stock-movements')).toBe(true);
+    expect(canAccessRoute('MANAGER', '/ai-insights')).toBe(true);
+    expect(canAccessRoute('ADMIN', '/ai-insights')).toBe(true);
+    expect(canAccessRoute('PICKER', '/ai-insights')).toBe(false);
+    expect(canAccessRoute('RECEIVER', '/ai-insights')).toBe(false);
+    expect(canAccessRoute('MANAGER', '/insights')).toBe(false);
     expect(canAccessRoute('PICKER', '/stock-movements')).toBe(false);
     expect(canAccessRoute('RECEIVER', '/stock-movements')).toBe(false);
     expect(canAccessRoute('PICKER', '/inventory/SKU-001')).toBe(true);

@@ -7,7 +7,7 @@ export type AppPath =
   | '/orders'
   | '/movements'
   | '/adjustment'
-  | '/insights'
+  | '/ai-insights'
   | '/reports'
   | '/users'
   | '/settings';
@@ -30,7 +30,7 @@ export const ALL_MENU_ITEMS: MenuItem[] = [
   { path: '/orders', label: 'Orders & Picking' },
   { path: '/movements', label: 'Stock Movements' },
   { path: '/adjustment', label: 'Stock Adjustment' },
-  { path: '/insights', label: 'AI Insights' },
+  { path: '/ai-insights', label: 'AI Insights' },
   { path: '/reports', label: 'Reports' },
   { path: '/users', label: 'Users & Roles' },
   { path: '/settings', label: 'Settings' },
@@ -46,8 +46,8 @@ const roleMainPaths: Record<Role, AppPath[]> = {
 const roleExplorePaths: Record<Role, AppPath[]> = {
   PICKER: [],
   RECEIVER: [],
-  MANAGER: ['/insights', '/reports', '/settings'],
-  ADMIN: ['/insights', '/reports', '/users', '/settings'],
+  MANAGER: ['/ai-insights', '/reports', '/settings'],
+  ADMIN: ['/ai-insights', '/reports', '/users', '/settings'],
 };
 
 export function getRoleMenu(role: Role): MenuGroup[] {
