@@ -33,6 +33,7 @@
 | A6 | ตัด stock (on-hand) เมื่อ Picker ยืนยันการหยิบ ไม่ทำ stock reservation ใน Prototype |
 | A7 | AI เป็นแนวคิด ใช้กฎง่าย ๆ คำนวณจากข้อมูลใน store ไม่ใช่โมเดล ML จริง และไม่อ้างความแม่นยำ |
 | A8 | ภาษาหน้าจอ: อังกฤษ (ข้อมูลตัวอย่างใช้สินค้าทั่วไปในคลังไทย) — ปรับได้ |
+| A9 | Location จำลองมี capacity และระยะ/พิกัดจาก dispatch point เพื่อใช้แนะนำตำแหน่งและเรียงเส้นทางหยิบ |
 
 **คำถามที่จะถามลูกค้าจริงก่อนเริ่มงาน** (ใส่ไว้ท้ายสไลด์): มีกี่ SKU / กี่คลัง? ใช้ barcode หรือ RFID อยู่ไหม? ใช้ระบบบัญชี/ERP อะไร? รอบเติมสินค้าและ lead time ของ supplier เป็นอย่างไร? ใช้ FIFO/FEFO ไหม? มี order กี่รายการต่อวัน และช่วงพีคเมื่อไหร่?
 
@@ -59,7 +60,7 @@
 | **Manager** (ผู้จัดการคลัง) | เห็นภาพรวม ปัญหาเร่งด่วน คำแนะนำ ตรวจสอบย้อนหลัง | ทุกเมนู ยกเว้น Users & Roles |
 | **Admin** | จัดการผู้ใช้และการตั้งค่า | ทุกเมนู |
 
-Login แบบ Demo Access: กรอก credential อะไรก็ได้ แล้ว**เลือก Role** เพื่อสาธิตเมนูที่ต่างกัน
+Login แบบ Demo Access: กรอก credential อะไรก็ได้ แล้ว**เลือก Role** เพื่อสาธิตเมนูที่ต่างกัน. Dashboard ซ่อนจาก Picker และ Receiver. หลัง Login ให้ไปหน้าแรกตาม Role: Picker → Orders & Picking, Receiver → Receiving, Manager/Admin → Dashboard. หากเปิด URL ที่ไม่มีสิทธิ์ ให้ redirect กลับหน้าแรกของ Role นั้น
 
 ---
 
@@ -100,6 +101,7 @@ Login แบบ Demo Access: กรอก credential อะไรก็ได้
 - ข้อความ "Demo Access: use any credentials to continue"
 - ตัวเลือกเลือก Role (Picker / Receiver / Manager / Admin)
 - **AC:** กรอกอะไรก็เข้าได้ และ Role ที่เลือกกำหนดเมนูใน Sidebar
+- **AC:** Login แล้วไปหน้าแรกตาม Role; Dashboard ไม่แสดงในเมนู Picker/Receiver; การเข้าถึง URL ที่ไม่มีสิทธิ์ redirect กลับหน้าแรกของ Role
 
 ### 6.2 Dashboard (BR-04, BR-06)
 - KPI cards: Total SKU, Low-stock items, Pending orders, Picking completed today
@@ -133,6 +135,7 @@ Login แบบ Demo Access: กรอก credential อะไรก็ได้
 - ฟอร์มปรับยอดจากการตรวจนับ: เลือก SKU, ยอดในระบบ, ยอดที่นับได้, ส่วนต่าง, **เหตุผล (บังคับ)**
 - เฉพาะ Manager/Admin
 - **AC:** บันทึกแล้ว On-hand เท่ากับยอดที่นับได้ และเกิด Movement ประเภท ADJUST พร้อมเหตุผล
+- ถ้ายอดที่นับได้เท่ากับยอดในระบบ ให้ไม่สร้าง Movement และแสดงข้อความว่ายอดตรงกัน; การบันทึกเหตุการณ์ตรวจนับเป็น Roadmap
 
 ### 6.8 AI Insights (BR-05) — ดูหัวข้อ 9
 
@@ -143,7 +146,9 @@ Login แบบ Demo Access: กรอก credential อะไรก็ได้
 - ตารางผู้ใช้จำลอง + Role + สิทธิ์เมนู (อ่านอย่างเดียว) เพื่อแสดงแนวคิด
 
 ### 6.11 Settings — แบบเบา
-- ตั้งค่า Reorder point เริ่มต้น, ธีม, ข้อมูลระบบ, ปุ่ม **Reset demo data**
+- ตั้งค่า Reorder point เริ่มต้นสำหรับสินค้าใหม่ในอนาคตเท่านั้น, ธีม, ข้อมูลระบบ, ปุ่ม **Reset demo data**
+- Reorder point ของสินค้าเดิมเป็นค่าประจำสินค้า; Manager/Admin แก้ได้ใน Product Detail
+- **Reset demo data** คืนเฉพาะข้อมูลธุรกิจ (products, orders, movements) เป็น seed โดยไม่ล้าง session หรือ theme
 
 ### 6.12 Layout (ตามโครงที่โจทย์กำหนด)
 - **Topbar:** ช่อง Search, กระดิ่งแจ้งเตือน (badge นับจำนวน Low/Critical alerts, คลิกแล้วเห็นรายการ), โปรไฟล์ (ชื่อ + Role) พร้อม dropdown
@@ -155,7 +160,7 @@ Login แบบ Demo Access: กรอก credential อะไรก็ได้
 ## 7. Data Model (จำลองใน store กลาง)
 
 - **Product:** sku, name, category, unit, locationId, onHand, reorderPoint, leadTimeDays
-- **Location:** id (`A-02-03-1`), zone, aisle, rack, level, พิกัดสำหรับคำนวณลำดับเดิน
+- **Location:** id (`A-02-03-1`), zone, aisle, rack, level, capacity, พิกัด/ระยะจาก dispatch point สำหรับคำนวณคำแนะนำตำแหน่งและลำดับเดิน
 - **Order:** id, customer, createdAt, dueAt, priority, status, lines[{sku, qty, pickedQty}]
 - **Movement:** id, timestamp, type (RECEIVE | PICK | ADJUST), sku, qty (+/-), qtyBefore, qtyAfter, locationId, userId, reference, reason
 - **User:** id, name, role
@@ -190,7 +195,8 @@ Login แบบ Demo Access: กรอก credential อะไรก็ได้
 **1) Stockout Prediction**
 - ข้อมูลที่ใช้: Movement ประเภท PICK ย้อนหลัง 30 วัน, on-hand ปัจจุบัน, lead time
 - กฎ (ไม่ใช่ ML): อัตราใช้เฉลี่ยต่อวัน = ยอดหยิบ 30 วัน ÷ 30, วันที่ของพอใช้ = on-hand ÷ อัตราใช้, **เสี่ยง** เมื่อวันที่ของพอใช้ < lead time
-- แสดง: SKU, on-hand, อัตราใช้/วัน, ของพอใช้กี่วัน, lead time, ระดับความเสี่ยง, **เหตุผลเป็นประโยค**, จำนวนที่แนะนำให้เติม
+  - แสดง: SKU, on-hand, อัตราใช้/วัน, ของพอใช้กี่วัน, lead time, ระดับความเสี่ยง, **เหตุผลเป็นประโยค**, จำนวนที่แนะนำให้เติม
+  - สูตรจำนวนแนะนำให้เติม = `max(0, reorderPoint + averageDailyUse × leadTimeDays − onHand)` แล้วปัดขึ้นเป็นจำนวนเต็ม; เหตุผลต้องแสดงสูตรและค่าตัวเลขที่ใช้
 - ผู้ใช้ทำต่อ: ตรวจสอบและสั่งเติมสินค้า (คนตัดสินใจเอง)
 
 **2) Manager Summary**
@@ -230,6 +236,8 @@ Login แบบ Demo Access: กรอก credential อะไรก็ได้
 7. **Persistence:** รีเฟรชหน้า ข้อมูลยังอยู่ และ Reset demo data คืนค่าเริ่มต้นได้
 8. **Role:** Login เป็น Picker เห็นเฉพาะเมนูของ Picker
 
+การทดสอบกฎใน `domain/stock.ts` ใช้ Vitest เป็น dev dependency โดยครอบคลุม Test Flows 1–5 และกรณีป้องกัน on-hand ติดลบ
+
 ---
 
 ## 12. Out of Scope / Roadmap (พูดในสไลด์ ไม่สร้างจริง)
@@ -258,3 +266,5 @@ Barcode/QR scanner จริง, หลายคลัง, เชื่อม ER
 | 3 | Receiving → Orders & Picking → Stock Movements + Stock Adjustment | Test Flow 1–5 ผ่าน |
 | 4 | Dashboard + AI Insights | ตัวเลข Dashboard เปลี่ยนตาม Flow รอบ 3 |
 | 5 | Reports, Users & Roles, Settings, Mobile picking, Polish | ทดสอบมือถือ + เดสก์ท็อป |
+
+การตั้งค่าเริ่มต้นของ Reorder point ใน Settings ใช้กับสินค้าใหม่ในอนาคตเท่านั้น; รายละเอียดประสบการณ์ Settings จะตัดสินใน Round 5. GitHub repository สร้าง/เชื่อมต่อและ Vercel เชื่อมต่อโดยผู้ใช้ตามขั้นตอนที่ผู้ช่วยสรุปให้.
