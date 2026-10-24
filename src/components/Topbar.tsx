@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { getRoleLabel } from '../domain/access';
 import { selectProductsByStatus } from '../domain/inventory';
 import type { StockStatus } from '../domain/models';
@@ -80,6 +80,7 @@ export function Topbar({ onOpenNavigation }: TopbarProps) {
                 </ul>
               )}
               {alerts.length > 6 && <p className="alert-more">Showing 6 of {alerts.length} items</p>}
+              <Link className="alerts-view-all" onClick={() => setOpenPanel(null)} to="/inventory?status=out,critical,low">View all in Inventory</Link>
             </section>
           )}
         </div>

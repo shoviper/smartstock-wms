@@ -7,8 +7,8 @@
 | Round | Scope | Status |
 |---|---|---|
 | 0 | Plan (no code) | Complete — plan approved |
-| 1 | Foundation: seed data, central store, Login + Role, Layout, Light/Dark, deploy | In progress — Steps 1–3 complete, awaiting review |
-| 2 | Inventory + Product Detail | Not started |
+| 1 | Foundation: seed data, central store, Login + Role, Layout, Light/Dark, deploy | Complete — ผู้ใช้ยืนยันว่า deploy แล้ว |
+| 2 | Inventory + Product Detail | In progress — Step 2a (Inventory) complete; Step 2b not started |
 | 3 | Receiving, Orders & Picking, Stock Movements, Stock Adjustment | Not started |
 | 4 | Dashboard + AI Insights | Not started |
 | 5 | Reports, Users & Roles, Settings, mobile picking, polish | Not started |
@@ -32,6 +32,10 @@
 - `src/data/seed.ts`: 40 products across 6 categories with explicit per-product category, unit and unique location assignment; 40 unique locations across 4 zones with varied aisles/racks/levels, capacity and dispatch coordinates/distance; 12 orders in four statuses; users and dated Movement history. Each SKU's history is continuous, every Movement uses that SKU's location, and its latest qtyAfter matches Product.onHand; initial statuses include 3 Out, 3 Critical, 3 Low and 31 Normal products.
 - `src/domain/stock.ts`: `receiveStock`, `pickItem`, `adjustStock` share `applyStockChange`; validation prevents invalid quantities, unknown SKU/location/user, SKU mismatch, unauthorized adjustments and negative stock. Equal-count adjustments create no Movement and return a matching-stock message.
 - `src/domain/inventory.ts`: `getStockStatus` and `selectProductsByStatus` implement Out/Critical/Low/Normal thresholds.
+- `src/domain/inventory.ts`: Inventory selectors derive product rows and category/Zone facets from store state; pure search/filter/sort and URL query parsing/serialization support the Inventory page. Invalid/unknown query values fall back safely; each sortable column toggles direction, status sort follows severity with SKU tie-break, and default SKU ascending is omitted from URL.
+- `src/components/InventoryPage.tsx`: read-only Inventory view with URL-backed search/category/multi-status/Zone filters, clickable status count cards, accessible sortable table headers, sub-820px product cards, and a shared filter reset used by the result toolbar and empty state. Result toolbar keeps its height when Clear filters is hidden and aligns the count left with the ghost reset action right; the action uses a fixed-size SVG icon.
+- `src/components/Topbar.tsx`: stock alerts include “View all in Inventory” linking to `/inventory?status=out,critical,low`.
+- `src/domain/inventory.test.ts`: Inventory search, filters, combined filters, each sort column's initial direction and toggling, reset state, default query omission and malformed/unknown query unit tests.
 - `src/store/StoreProvider.tsx`: Context + reducer exposes stock actions, Login/Log Out, theme actions and Reset demo data. Reset replaces only products, orders and movements, preserving locations, users, session and theme.
 - `src/store/persistence.ts`: versioned localStorage envelope, key `smartstock-wms-store`, version `1`; persists current session and theme, accepts previous v1 data without a session, refreshes seeded products' categories/units/location IDs, Location records and Movement location IDs from seed while preserving onHand, reorder points, Movement quantity/type/timestamp fields, session and theme; falls back to seed for invalid/unsupported data. Feedback is transient and not persisted.
 - `src/domain/access.ts`: pure role-to-menu, role-to-home, route access/redirect and Demo Access session functions, covered by `src/domain/access.test.ts`.
@@ -45,6 +49,7 @@
 - Unit tests: `npm test` (Vitest; stock flows, seed categories/location assignment/capacity/Movement locations/zone grouping/fast-pick placement/history, persistence migration/reset and Role menu/home/route access).
 - Dependency audit: `npm audit` (last run: 0 vulnerabilities).
 - Round 1 Step 3 checks: lint and build pass; all 31 tests pass. Browser checks: blank Picker/Receiver login and correct landing pages; forbidden route redirects; session/theme survive refresh; alert badge/list derive from stock selectors; Log Out returns to `/login`.
+- Round 2 Step 2a checks: `npm run lint` passes; `npm run build` passes; `npm test` passes (42 tests across 5 files), including Inventory query/filter/sort/reset cases.
 
 ## Deployed URL
 - smartstock-wms.vercel.app
@@ -53,4 +58,9 @@
 - Demo dispatch coordinates model a simple straight-through warehouse path; validate distances and walking paths against a real warehouse layout before operational use.
 
 ## Next step
-- Await user review of Round 1 Step 3; do not start Step 4 until explicitly instructed.
+- Round 2 Step 2a (Inventory) complete; awaiting user review before starting Step 2b (Product Detail).
+
+## Backlog
+- Round 5: Move Copy paper (SKU-021) to Level 1 because paper is heavy; update its `locationId` in Movement records to match.
+- Round 5 Polish: Inventory table column widths shift when search/filter results change; set `table-layout: fixed` to keep widths stable (presentation issue, not a logic bug).
+- Before Round 4: Verify the seed has 3–5 products at stockout risk under the Stockout Prediction formula, including both Normal and Low statuses. If not, adjust PICK Movements in the seed to be more realistic while preserving `qtyBefore`/`qtyAfter` continuity and matching `onHand`.
