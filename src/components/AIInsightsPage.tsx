@@ -9,13 +9,15 @@ import {
   type StockoutRiskFilter,
   type ManagerIssueSeverity,
 } from '../domain/insights';
-import type { StockStatus } from '../domain/models';
+import type { Location, Order, OrderLine, StockStatus } from '../domain/models';
+import { DISPATCH_POINT, optimizeRoute, walkingDistance } from '../domain/pickingRoute';
 import { useStore } from '../store/StoreProvider';
 
 const riskOrder: StockoutRisk[] = ['STOCKED_OUT', 'HIGH', 'AT_RISK', 'WATCH', 'OK', 'NO_RECENT_DEMAND'];
 const insightSections = [
   { id: 'manager-summary', label: 'Manager Summary' },
   { id: 'stockout-prediction', label: 'Stockout Prediction' },
+  { id: 'picking-route', label: 'Picking Route' },
 ];
 const severityOrder: ManagerIssueSeverity[] = ['CRITICAL', 'HIGH', 'MEDIUM'];
 const severityLabels: Record<ManagerIssueSeverity, string> = { CRITICAL: 'Critical', HIGH: 'High', MEDIUM: 'Medium' };
@@ -29,10 +31,82 @@ const asOfFormatter = new Intl.DateTimeFormat('en', {
 const quantity = (value: number) => new Intl.NumberFormat('en', { maximumFractionDigits: 1 }).format(value);
 const preciseQuantity = (value: number) => new Intl.NumberFormat('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
 
+function mapPoint(point: { x: number; y: number }) {
+  return { x: 56 + point.x * 18, y: 42 + point.y * 18 };
+}
+
+function routePath(sequence: OrderLine[], locationsBySku: Record<string, Location>): string {
+  const points = [DISPATCH_POINT, ...sequence.map((line) => locationsBySku[line.sku].coordinates), DISPATCH_POINT].map(mapPoint);
+  return points.slice(1).reduce((path, point) => `${path} H ${point.x} V ${point.y}`, `M ${points[0].x} ${points[0].y}`);
+}
+
+function sequenceLabelPositions(sequence: OrderLine[], locationsBySku: Record<string, Location>, side: 'baseline' | 'suggested') {
+  const occurrences = new Map<string, number>();
+  return sequence.map((line, index) => {
+    const point = mapPoint(locationsBySku[line.sku].coordinates);
+    const key = `${point.x}:${point.y}`;
+    const occurrence = occurrences.get(key) ?? 0;
+    occurrences.set(key, occurrence + 1);
+    return {
+      point,
+      index,
+      x: side === 'baseline' ? point.x - 38 : point.x + 12,
+      y: side === 'baseline' ? point.y - 14 - occurrence * 16 : point.y + 4 + occurrence * 16,
+    };
+  });
+}
+
+function SimulatedDataBadge() {
+  return <span className="insights-concept-badge">Simulated data — concept only</span>;
+}
+
+function PickingRouteMap({
+  baseline,
+  suggested,
+  locationsBySku,
+  allLocations,
+}: {
+  baseline: OrderLine[];
+  suggested: OrderLine[];
+  locationsBySku: Record<string, Location>;
+  allLocations: Record<string, Location>;
+}) {
+  const aisles = new Map<string, Location[]>();
+  Object.values(allLocations).forEach((location) => {
+    const key = `${location.zone}-${location.aisle}`;
+    aisles.set(key, [...(aisles.get(key) ?? []), location]);
+  });
+  const dispatch = mapPoint(DISPATCH_POINT);
+  const baselineLabels = sequenceLabelPositions(baseline, locationsBySku, 'baseline');
+  const suggestedLabels = sequenceLabelPositions(suggested, locationsBySku, 'suggested');
+  return <div className="picking-route-map-scroll"><svg aria-label="Warehouse picking route map" className="picking-route-map" role="img" viewBox="0 40 1060 430">
+    {[...aisles.entries()].map(([key, locations]) => {
+      const xs = locations.map((location) => location.coordinates.x);
+      const ys = locations.map((location) => location.coordinates.y);
+      const left = Math.min(...xs) * 18 + 34;
+      const top = Math.min(...ys) * 18 + 22;
+      const right = Math.max(...xs) * 18 + 78;
+      const bottom = Math.max(...ys) * 18 + 62;
+      return <g key={key}><rect className="picking-route-aisle" height={bottom - top} rx="8" width={right - left} x={left} y={top} /><text className="picking-route-block-label" textAnchor="middle" x={(left + right) / 2} y={top - 7}>{`${locations[0].zone}${locations[0].aisle}`}</text></g>;
+    })}
+    <path className="picking-route-line picking-route-baseline" d={routePath(baseline, locationsBySku)} transform="translate(0 -3)" />
+    <path className="picking-route-line picking-route-suggested" d={routePath(suggested, locationsBySku)} />
+    <circle className="picking-route-dispatch" cx={dispatch.x} cy={dispatch.y} r="9" />
+    <text className="picking-route-point-label" x={dispatch.x + 14} y={dispatch.y - 5}>D · Dispatch</text>
+    {baselineLabels.map(({ point, index, x, y }) => {
+      return <g key={`baseline-${index}`}><circle className="picking-route-marker picking-route-marker-baseline" cx={point.x} cy={point.y} r="8" /><rect className="picking-route-sequence-label" height="17" rx="4" width="32" x={x} y={y} /><text className="picking-route-sequence-text" textAnchor="middle" x={x + 16} y={y + 12}>{`B${index + 1}`}</text></g>;
+    })}
+    {suggestedLabels.map(({ point, index, x, y }) => {
+      return <g key={`suggested-${index}`}><circle className="picking-route-marker picking-route-marker-suggested" cx={point.x} cy={point.y} r="5" /><rect className="picking-route-sequence-label" height="17" rx="4" width="32" x={x} y={y} /><text className="picking-route-sequence-text" textAnchor="middle" x={x + 16} y={y + 12}>{`A${index + 1}`}</text></g>;
+    })}
+  </svg></div>;
+}
+
 export function AIInsightsPage() {
   const { state } = useStore();
   const [now, setNow] = useState(() => new Date());
   const [riskFilter, setRiskFilter] = useState<StockoutRiskFilter>('ALL');
+  const [selectedRouteOrderId, setSelectedRouteOrderId] = useState('');
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 60_000);
     return () => window.clearInterval(timer);
@@ -42,6 +116,18 @@ export function AIInsightsPage() {
   const managerSummary = useMemo(() => buildManagerSummary(state, now), [state, now]);
   const visibleRows = useMemo(() => filterStockoutPredictions(insights.predictions, riskFilter), [insights.predictions, riskFilter]);
   const method = useMemo(() => getStockoutMethodSummary(), []);
+  const routeOrders = useMemo(() => Object.values(state.orders).filter((order) => order.lines.length >= 3), [state.orders]);
+  const routeLocationsBySku = useMemo(() => Object.fromEntries(Object.values(state.products).flatMap((product) => {
+    const location = state.locations[product.locationId];
+    return location ? [[product.sku, location]] : [];
+  })) as Record<string, Location>, [state.products, state.locations]);
+  const selectedRouteOrder = routeOrders.find((order) => order.id === selectedRouteOrderId) ?? routeOrders[0];
+  const routeComparison = useMemo(() => {
+    if (!selectedRouteOrder) return null;
+    const baseline = selectedRouteOrder.lines;
+    const suggested = optimizeRoute(baseline, routeLocationsBySku);
+    return { baseline, baselineDistance: walkingDistance(baseline, routeLocationsBySku), suggested: suggested.sequence, suggestedDistance: suggested.distanceMeters };
+  }, [routeLocationsBySku, selectedRouteOrder]);
 
   return (
     <main className="page-content insights-page">
@@ -78,11 +164,9 @@ export function AIInsightsPage() {
               <ol>{managerSummary.doFirst.map((issue) => <li key={issue.id}><span className={`manager-issue-badge manager-issue-${issue.severity.toLowerCase()}`}>{severityLabels[issue.severity]}</span><Link to={issue.href}>{issue.title}</Link><small>{issue.nextAction}</small></li>)}</ol>
             )}
           </div>
-          <div className="manager-summary-explanation">
-            <span className="insights-as-of manager-summary-concept">Simulated data — concept only</span>
-            <h3>How this summary works</h3>
-            <p>{managerSummary.explanation}</p>
-            <p>{managerSummary.reviewNote}</p>
+          <div className="manager-summary-explanation insights-how-panel">
+            <div className="insights-how-heading"><h3>How this summary works</h3><SimulatedDataBadge /></div>
+            <div className="insights-how-content"><p>{managerSummary.explanation}</p><p>{managerSummary.reviewNote}</p></div>
           </div>
         </div>
         <div className="manager-summary-groups">
@@ -106,6 +190,7 @@ export function AIInsightsPage() {
             <p>Estimate how long current stock may last before replenishment arrives.</p>
             <p className="insights-next-action-note">Next action: {method.nextStep}</p>
           </div>
+          <SimulatedDataBadge />
         </div>
 
         <div aria-label="Filter predictions by risk level" className="insights-risk-chips" role="group">
@@ -196,6 +281,53 @@ export function AIInsightsPage() {
                   <Link className="insights-product-link" to={`/inventory/${encodeURIComponent(row.product.sku)}`}>View product</Link>
                 </article>
               ))}
+            </div>
+          </>
+        )}
+      </section>
+
+      <section aria-labelledby="picking-route-title" className="insights-section picking-route-section" id="picking-route">
+        <div className="insights-section-heading">
+          <div>
+            <h2 id="picking-route-title">Picking Route</h2>
+            <p>Compare the saved Order line sequence with a nearest-neighbor suggestion.</p>
+          </div>
+          <SimulatedDataBadge />
+        </div>
+        {routeOrders.length === 0 || !routeComparison || !selectedRouteOrder ? (
+          <div className="filter-empty-state insights-empty"><h3>No Orders with 3 or more lines</h3><p>Picking Route comparison will appear when an Order has at least three lines.</p></div>
+        ) : (
+          <>
+            <label className="picking-route-order-select">Select Order
+              <select onChange={(event) => setSelectedRouteOrderId(event.target.value)} value={selectedRouteOrder.id}>
+                {routeOrders.map((order: Order) => <option key={order.id} value={order.id}>{order.id} · {order.customer} ({order.lines.length} lines)</option>)}
+              </select>
+            </label>
+            <div className="picking-route-comparison">
+              <article><h3>Baseline · saved Order line order</h3><strong>{routeComparison.baselineDistance} m</strong><p>{routeComparison.baseline.map((line) => line.sku).join(' → ')}</p></article>
+              <article><h3>Suggested · nearest-neighbor</h3><strong>{routeComparison.suggestedDistance} m</strong><p>{routeComparison.suggested.map((line) => line.sku).join(' → ')}</p></article>
+            </div>
+            {routeComparison.baselineDistance > routeComparison.suggestedDistance ? (
+              <p className="picking-route-result">Suggested route is {routeComparison.baselineDistance - routeComparison.suggestedDistance} m shorter for this order.</p>
+            ) : routeComparison.baselineDistance === routeComparison.suggestedDistance ? (
+              <p className="picking-route-result">Suggested route is not shorter for this order. Difference: 0 m.</p>
+            ) : (
+              <p className="picking-route-result">Suggested route is not shorter for this order; it is {routeComparison.suggestedDistance - routeComparison.baselineDistance} m longer.</p>
+            )}
+            <p className="picking-route-distance-note">Distances are calculated from coordinates in the simulated warehouse layout, not actual warehouse walking distances.</p>
+            <PickingRouteMap allLocations={state.locations} baseline={routeComparison.baseline} locationsBySku={routeLocationsBySku} suggested={routeComparison.suggested} />
+            <div aria-label="Picking route map legend" className="picking-route-legend">
+              <span><i className="picking-route-legend-line picking-route-legend-baseline" />Baseline (dashed gray)</span>
+              <span><i className="picking-route-legend-line picking-route-legend-suggested" />Suggested route (solid blue)</span>
+              <span><b>D</b>Dispatch</span><span><b>B1 / A1</b>Pick sequence number</span>
+            </div>
+            <div className="picking-route-method insights-how-panel">
+              <div className="insights-how-heading"><h3>How this works</h3><SimulatedDataBadge /></div>
+              <div className="insights-how-content">
+                <p><strong>Data used:</strong> product locations for the lines in this Order.</p>
+                <p><strong>Method:</strong> simple nearest-neighbor selection from the dispatch point, using Manhattan distance from the simulated coordinates. Ties keep the earlier Order line first.</p>
+                <p><strong>Limitations:</strong> this heuristic does not guarantee the shortest route. Distances are calculated from coordinates in the simulated warehouse layout, not actual warehouse walking distances.</p>
+              </div>
             </div>
           </>
         )}

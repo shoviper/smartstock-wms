@@ -66,3 +66,14 @@
 | 5 | Manager / Admin | Receive สินค้าจนพ้น Critical หรือแก้ข้อมูลให้ไม่มี issue | จำนวนและรายการ Manager Summary เปลี่ยนจาก store; ไม่มีประเด็นแสดง “No urgent issues” | ☐ ผ่าน / ☐ ไม่ผ่าน |
 | 6 | Picker / Receiver | เปิด `/ai-insights` โดยตรง | ถูก redirect ตาม Role และไม่มี AI Insights ในเมนู | ☐ ผ่าน / ☐ ไม่ผ่าน |
 | 7 | Manager / Admin | ตรวจจอแคบและ Light/Dark | การ์ด/กลุ่มอ่านได้ ไม่มีการพึ่งสีอย่างเดียว และปุ่ม/ลิงก์กดได้ | ☐ ผ่าน / ☐ ไม่ผ่าน |
+
+## Round 4d — Picking Route
+
+| ขั้น | Role | สิ่งที่ให้ทดสอบ | ผลที่ควรเห็น | ผล |
+|---:|---|---|---|---|
+| 1 | Manager / Admin | เปิด `/ai-insights` และใช้เมนูลัด Picking Route | subtitle/เมนูลัดครอบคลุมทุกส่วน และ Picking Route มีป้าย “Simulated data — concept only” | ☐ ผ่าน / ☐ ไม่ผ่าน |
+| 2 | Manager / Admin | เลือก Order อย่างน้อย 3 lines | Baseline ใช้ลำดับ line ที่บันทึกใน Order; Suggested ใช้ nearest-neighbor และแสดงระยะเป็นเมตร | ☐ ผ่าน / ☐ ไม่ผ่าน |
+| 3 | Manager / Admin | เปรียบเทียบ Order 0001–0004 กับ 0005–0012 | สี่รายการแรกแสดงระยะ Suggested สั้นกว่า; รายการที่เหลือแสดงตามจริงว่าไม่สั้นกว่า โดยไม่มีค่าประหยัดติดลบหรือเปอร์เซ็นต์ | ☐ ผ่าน / ☐ ไม่ผ่าน |
+| 4 | Manager / Admin | ตรวจ SVG และ legend บน desktop และจอแคบ | มี dispatch, Zone/Aisle, หมายเลข B/A, baseline เส้นประเทาและ suggested เส้นทึบพร้อมป้ายข้อความ; จอแคบเลื่อนแนวนอนได้ | ☐ ผ่าน / ☐ ไม่ผ่าน |
+| 5 | Manager / Admin | ตรวจ How this works | ระบุข้อมูล, nearest-neighbor, ข้อจำกัดว่าไม่รับประกันเส้นทางสั้นที่สุด และระยะจากผังจำลองไม่ใช่ระยะจริง | ☐ ผ่าน / ☐ ไม่ผ่าน |
+| 6 | Picker / Receiver | เปิด `/ai-insights` โดยตรง | ถูก redirect ตาม Role; ไม่มี AI Insights ในเมนู | ☐ ผ่าน / ☐ ไม่ผ่าน |

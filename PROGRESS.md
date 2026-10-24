@@ -10,7 +10,7 @@
 | 1 | Foundation: seed data, central store, Login + Role, Layout, Light/Dark, deploy | Complete — ผู้ใช้ยืนยันว่า deploy แล้ว |
 | 2 | Inventory + Product Detail | Complete — Steps 2a and 2b complete |
 | 3 | Receiving, Orders & Picking, Stock Movements, Stock Adjustment | In progress — Steps 3a/3b/3c/3d complete; Step 3e verified |
-| 4 | Dashboard + AI Insights | Steps 4a, 4b and 4c complete — Dashboard, Stockout Prediction and Manager Summary implemented and verified |
+| 4 | Dashboard + AI Insights | Steps 4a, 4b, 4c and 4d complete — Dashboard, Stockout Prediction, Manager Summary and Picking Route implemented and verified |
 | 5 | Reports, Users & Roles, Settings, mobile picking, polish | Not started |
 
 ## Decisions
@@ -33,6 +33,8 @@
 - Round 4b localStorage: `STORE_VERSION` remains 3 because it versions the persisted schema, not seed contents. Existing localStorage business data is preserved and does not adopt the new prediction examples automatically; use the confirmed **Reset demo data** action to load the new seed.
 - Round 4c Short pick definition: count a completed Order whose `completedAt` falls within the trailing 7 days (inclusive at exactly 7 days and up to `now`) and has at least one line with `shortQty > 0`; one issue per Order, merged with other Order rules using the highest severity. The displayed reason names the Order completion and short-line count, not a short event date.
 - Round 4c Short pick limitation: use `completedAt` as a proxy because the store does not record the timestamp of each short line; more precise timing requires adding a short-line timestamp in a future round.
+- Round 4d Picking Route uses `(0,5)` as the dispatch coordinate because it matches `dispatchDistanceMeters` for 3/40 locations, compared with 2/40 for `(16,5)`. Route calculations and the SVG use Manhattan distance from the explicit point and Location `coordinates` only; they do not use `dispatchDistanceMeters`.
+- Round 4d Order detail route switch was skipped because `pathLines` determines both visible order and the `Next line` target; changing it would change picking behavior, while changing display alone would make the order and Next line inconsistent.
 
 ## Store structure
 - `src/domain/models.ts`: Product, Location (capacity, coordinates, dispatch distance), Order/OrderLine (start time and assignee), Movement, User and StoreState types.
@@ -60,6 +62,8 @@
 - `src/domain/insights.ts` and `src/domain/insights.test.ts`: pure, injected-time Stockout Prediction for trailing 30-day PICK demand, risk bands, finite replenishment quantity, reason/calculation/action text, risk sorting and filtering.
 - `src/domain/insights.ts` and `src/domain/insights.test.ts`: pure, injected-time Manager Summary from current stock, open/completed Orders, Stockout Prediction and recent large ADJUST Movements; severity merging, generated reasons/actions/links, ordering, summary text and empty state.
 - `src/components/AIInsightsPage.tsx` and `src/styles.css`: Manager/Admin-only `/ai-insights` page with Manager Summary above Stockout Prediction, Do first links, collapsible severity groups, simulated-data explanation and responsive layout. No other AI concept is implemented.
+- `src/domain/pickingRoute.ts` and `src/domain/pickingRoute.test.ts`: pure Manhattan walking distance from/to the dispatch point and deterministic nearest-neighbor route with input-order tie-breaks.
+- `src/components/AIInsightsPage.tsx` and `src/styles.css`: Picking Route comparison, responsive SVG map and route explanation added to `/ai-insights`; the page subtitle and section shortcuts cover all current sections.
 - `src/flows/insights.test.ts` and `src/domain/access.test.ts`: store receive changes Manager Summary issues; store pick changes Stockout Prediction; role/menu/route coverage for `/ai-insights`.
 - `QA_CHECKLIST.md`: Round 4c manual checks for role guard, issue rules/deduplication, short-pick proxy, store updates and responsive themes.
 - `src/data/seed.ts` and `src/data/seed.test.ts`: risk-demo PICK totals and lead times; fast-pick location test remains scoped to the explicitly designated fast-pick SKUs.
@@ -104,6 +108,7 @@
 - Round 3 Step 3e checks: baseline before edits `npm test` passed (149 tests across 11 files). Added the location-capacity guard to `adjustStock` without changing its other validation/recording behavior, with store-action regression tests for exact capacity and capacity +1. Added store flow and seeded random invariant coverage (200 actions); final `npm test` passes 159 tests across 12 files, with all baseline tests retained and passing. `npm run lint` and `npm run build` pass. Reset demo data is available to Manager/Admin in the profile dropdown with confirmation; reducer test and browser check confirmed the session/theme stay active and Reset can be canceled. Dashboard checks remain deferred to Round 4a and are marked as such in the QA checklist. Manual click-through for Flows 1–8 remains for user review using `QA_CHECKLIST.md`.
 - Round 4b verification: `npm run lint`, `npm run build`, and `npm test -- --run` pass (177 tests across 16 files); `git diff --check` passes. Stockout tests cover strict risk boundaries, empty/no-demand/zero stock, 30-day inclusive cutoff, PICK-only aggregation, ceil replenishment, generated text values, finite outputs, sorting/filtering, and a store pick changing the prediction. Seed integrity tests confirm movement chains, ending on-hand, and Order PICK totals. Manual review is listed in `QA_CHECKLIST.md`.
 - Round 4c verification: `npm run lint`, `npm run build`, `npm test -- --run` (188 tests across 16 files), and `git diff --check` pass. Tests cover Manager Summary issue rules/severity merging/order/due boundaries, Short pick exact seven-day boundary/older/no-short/open Order exclusion, empty state, dynamic summary, and store receive updating issues. Short pick uses `completedAt` because no short timestamp is stored.
+- Round 4d verification: `npm run lint`, `npm run build`, `npm test -- --run` (193 tests across 17 files), and `git diff --check` pass. Picking Route tests cover Manhattan dispatch legs, one line, same-location lines, deterministic ties, no missing/duplicate lines, and a sample route shorter than baseline.
 - Round 2 Step 2b manual checks: open a product from Inventory as each role and return with query state intact; verify unknown SKU state; check position-code parity, stock endpoint scale/legend and status colors; update reorder point as Manager/Admin, verify invalid/unchanged Save states, updated-message dismissal on edit and refresh persistence/status alerts; confirm Picker/Receiver read-only; inspect recent Movements and open Orders.
 
 ## Deployed URL
@@ -116,9 +121,10 @@
 - Stock Movements colors RECEIVE badges green and PICK badges yellow even though Movement types are not stock statuses, which may conflict with AGENTS.md's status-only red/yellow/green guidance. Defer the decision to Round 5; Dashboard uses non-status hues for Movement types.
 - Existing localStorage users retain their current business data and will not see the new Stockout Prediction seed examples until they choose **Reset demo data**; Reset replaces products, orders, and movements after confirmation.
 - Manager Summary uses Order `completedAt` as a proxy for Short pick time because the system does not record when a short line occurred; more precise timing requires a future short-line timestamp.
+- Picking Route uses Manhattan distance from `(0,5)` and Location coordinates; 37/40 `dispatchDistanceMeters` values differ from this Manhattan distance. The current field remains used by Product Detail display and the seed fast-pick proximity test; seed values are unchanged in Round 4d.
 
 ## Next step
-- Round 4a Dashboard, Round 4b Stockout Prediction, and Round 4c Manager Summary are implemented; review all three using `QA_CHECKLIST.md`. Do not commit/push.
+- Round 4a Dashboard, 4b Stockout Prediction, 4c Manager Summary, and 4d Picking Route are implemented; review them using `QA_CHECKLIST.md`. Do not commit/push.
 
 ## Backlog
 - Round 5 (if time permits): Inventory still shows all 40 products on one page. To align with Stock Movements, paginate 25 per page by extracting pagination into a shared component/hook. Not tied to a BR. Risk: may affect Stock Movements and Inventory's existing query state. Production inventory (~2,000 SKUs) needs pagination or virtual scroll.
