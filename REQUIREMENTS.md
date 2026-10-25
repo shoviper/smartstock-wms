@@ -60,7 +60,7 @@
 | **Manager** (ผู้จัดการคลัง) | เห็นภาพรวม ปัญหาเร่งด่วน คำแนะนำ ตรวจสอบย้อนหลัง | ทุกเมนู ยกเว้น Users & Roles |
 | **Admin** | จัดการผู้ใช้และการตั้งค่า | ทุกเมนู |
 
-Login แบบ Demo Access: กรอก credential อะไรก็ได้ แล้ว**เลือก Role** เพื่อสาธิตเมนูที่ต่างกัน. Dashboard ซ่อนจาก Picker และ Receiver. หลัง Login ให้ไปหน้าแรกตาม Role: Picker → Orders & Picking, Receiver → Receiving, Manager/Admin → Dashboard. หากเปิด URL ที่ไม่มีสิทธิ์ ให้ redirect กลับหน้าแรกของ Role นั้น
+Login แบบ Demo Access: กรอก credential อะไรก็ได้ แล้ว**เลือก Role** เพื่อสาธิตเมนูที่ต่างกัน. Dashboard ซ่อนจาก Picker และ Receiver. Picker และ Receiver เห็น Inventory แบบอ่านอย่างเดียว. หลัง Login ให้ไปหน้าแรกตาม Role: Picker → Orders & Picking, Receiver → Receiving, Manager/Admin → Dashboard. หากเปิด URL ที่ไม่มีสิทธิ์ ให้ redirect กลับหน้าแรกของ Role นั้น
 
 ---
 
@@ -107,6 +107,7 @@ Login แบบ Demo Access: กรอก credential อะไรก็ได้
 - KPI cards: Total SKU, Low-stock items, Pending orders, Picking completed today
 - กราฟสถานะงาน (Pending / In Progress / Completed), รายการสต็อกวิกฤต, Order ที่ใกล้เลยกำหนด, กิจกรรมล่าสุด (จาก Movements)
 - **AC:** ตัวเลขทุกตัวคำนวณจาก store (ห้าม hardcode) และเปลี่ยนทันทีเมื่อมีการรับเข้า/หยิบออก
+- สถานะจริง: กราฟ Movement ครอบคลุม 14 วันปฏิทิน แต่ลิงก์ไป Stock Movements ใช้ `range=30d`; หน้าปลายทางยังไม่มีตัวกรอง 14 วัน จึงไม่ตรงช่วงวันที่ที่กราฟแสดง
 
 #### นิยามที่ใช้ใน Dashboard
 1. **วันนี้** = วันปฏิทิน Asia/Bangkok คำนวณจากเวลาปัจจุบันที่ส่งให้ selector; จำนวน Order ใช้ `completedAt` และจำนวนหน่วยใช้ Movement ประเภท `PICK` ตามวันดังกล่าว
@@ -118,6 +119,7 @@ Login แบบ Demo Access: กรอก credential อะไรก็ได้
 ### 6.3 Inventory (BR-01, BR-06)
 - ตาราง: SKU, ชื่อสินค้า, หมวด, On-hand, ตำแหน่ง, Reorder point, สถานะ (Normal / Low / Critical / Out)
 - Search (SKU/ชื่อ), Filter (หมวด, สถานะ, Zone), Sort
+- ตารางปัจจุบันแสดงสินค้าทั้งหมด 40 SKU ในหน้าเดียว ยังไม่มี pagination
 - Product Detail (drawer หรือหน้า): ข้อมูลสินค้า, ตำแหน่ง, Reorder point, Lead time, ประวัติ Movement ของ SKU นั้น
 - **AC:** ค้นหา/กรองได้, สีสถานะถูกต้องตามกฎข้อ 8, คลิก SKU เห็นรายละเอียดและประวัติ
 
@@ -127,7 +129,7 @@ Login แบบ Demo Access: กรอก credential อะไรก็ได้
 - แสดงสรุปสินค้าและตัวอย่าง on-hand ก่อน → หลังพร้อมสถานะใหม่ก่อนยืนยัน
 - Recent receipts แสดง 10 Movement ประเภท RECEIVE ล่าสุด
 - Product Detail มีปุ่ม Receive stock สำหรับ Receiver/Manager/Admin; ลิงก์เลือก SKU ล่วงหน้า
-- คำแนะนำตำแหน่งจาก AI เป็นงาน Round 4 ขั้น 4e
+- คำแนะนำตำแหน่งเป็นงาน Round 4 ขั้น 4e ที่ถูกข้ามใน Receiving; ปัจจุบันมีหน้า Storage Location Recommendation แยกใน AI Insights แต่ไม่ได้แสดง banner ในฟอร์ม Receiving หรือย้ายสินค้า
 - **AC:** บันทึกแล้ว On-hand เพิ่มตามจำนวน และเกิด Movement ประเภท RECEIVE
 
 ### 6.5 Orders & Picking (BR-03)
@@ -140,7 +142,8 @@ Login แบบ Demo Access: กรอก credential อะไรก็ได้
 
 ### 6.6 Stock Movements (BR-02)
 - ตาราง audit log: เวลา, ประเภท (RECEIVE / PICK / ADJUST), SKU, จำนวน (+/-), ก่อน → หลัง, ตำแหน่ง, ผู้ทำรายการ, อ้างอิง/เหตุผล
-- Filter: วันที่, ประเภท, SKU, ผู้ทำรายการ
+- Filter: วันที่, ประเภท, SKU/ชื่อสินค้า, ผู้ทำรายการ และ Reference
+- ข้อจำกัดข้อมูลผู้ทำรายการ: Movement ใช้ผู้ใช้ seed ตาม Role จึงอาจไม่แสดงชื่อที่ผู้สาธิตกรอกตอน Login (ดู Backlog ใน `PROGRESS.md`)
 - **AC:** ทุกการเปลี่ยนแปลงสต็อกต้องปรากฏที่นี่ และยอด before/after ต่อเนื่องกัน
 
 ### 6.7 Stock Adjustment (BR-02)
@@ -153,15 +156,17 @@ Login แบบ Demo Access: กรอก credential อะไรก็ได้
 ### 6.8 AI Insights (BR-05) — ดูหัวข้อ 9
 
 ### 6.9 Reports (BR-08) — แบบเบา
-- Export CSV: Inventory ปัจจุบัน, Stock Movements (ตาม filter)
+- Export CSV: Inventory snapshot, Low-stock & reorder list, และ Stock Movements ตาม filter ที่เลือก
 
 ### 6.10 Users & Roles (BR-07) — แบบเบา
-- ตารางผู้ใช้จำลอง + Role + สิทธิ์เมนู (อ่านอย่างเดียว) เพื่อแสดงแนวคิด
+- ตารางผู้ใช้จำลองแสดงชื่อและ Role พร้อมตารางเมนู/ความสามารถตาม Role (อ่านอย่างเดียว) เพื่อแสดงแนวคิด
+- ไม่มีคอลัมน์ Active เพราะ `User` model ไม่มีสถานะนี้และข้อกำหนดเดิมไม่ได้กำหนดไว้; การเปิด/ปิดบัญชีและ SSO เป็น Roadmap
 
 ### 6.11 Settings — แบบเบา
 - ตั้งค่า Reorder point เริ่มต้นสำหรับสินค้าใหม่ในอนาคตเท่านั้น, ธีม, ข้อมูลระบบ, ปุ่ม **Reset demo data**
 - Reorder point ของสินค้าเดิมเป็นค่าประจำสินค้า; Manager/Admin แก้ได้ใน Product Detail
-- **Reset demo data** คืนเฉพาะข้อมูลธุรกิจ (products, orders, movements) เป็น seed โดยไม่ล้าง session หรือ theme
+- Prototype ยังไม่มีฟีเจอร์เพิ่มสินค้า; ค่า default จึงยังไม่ถูกนำไปใช้กับสินค้าใหม่จริง และไม่เปลี่ยนสินค้าเดิมหรือสร้าง Movement
+- **Reset demo data** คืน products, locations, orders และ movements เป็น seed โดยไม่ล้าง session, theme หรือค่า default reorder point
 
 ### 6.12 Layout (ตามโครงที่โจทย์กำหนด)
 - **Topbar:** ช่อง Search, กระดิ่งแจ้งเตือน (badge นับจำนวน Low/Critical alerts, คลิกแล้วเห็นรายการ), โปรไฟล์ (ชื่อ + Role) พร้อม dropdown
@@ -265,7 +270,7 @@ Barcode/QR scanner จริง, หลายคลัง, เชื่อม ER
 - Sidebar + Topbar ตามข้อ 6.12, รองรับ Light/Dark
 - Responsive: เดสก์ท็อปเป็นหลัก แต่หน้า Orders & Picking ต้องใช้บนมือถือได้ดี (ปุ่มใหญ่)
 - Empty state / error state ต้องมีข้อความที่เป็นมิตร
-- ฟอนต์อ่านง่าย รองรับภาษาไทย (เช่น Inter + Noto Sans Thai)
+- ฟอนต์อ่านง่าย รองรับภาษาไทย: CSS ระบุ `Inter` เป็นลำดับแรกและ fallback ไปยัง system fonts; Prototype ไม่ได้โหลด/บรรจุ Inter หรือ Noto Sans Thai โดยตรง
 
 ---
 
@@ -281,3 +286,35 @@ Barcode/QR scanner จริง, หลายคลัง, เชื่อม ER
 | 5 | Reports, Users & Roles, Settings, Mobile picking, Polish | ทดสอบมือถือ + เดสก์ท็อป |
 
 การตั้งค่าเริ่มต้นของ Reorder point ใน Settings ใช้กับสินค้าใหม่ในอนาคตเท่านั้น; รายละเอียดประสบการณ์ Settings จะตัดสินใน Round 5. GitHub repository สร้าง/เชื่อมต่อและ Vercel เชื่อมต่อโดยผู้ใช้ตามขั้นตอนที่ผู้ช่วยสรุปให้.
+
+## 15. สถานะเทียบกับ Prototype (Round 5 Step 5d)
+
+| ข้อกำหนด | สถานะ | หมายเหตุจากสิ่งที่ตรวจจริง |
+|---|---|---|
+| 1. Context & Goal | ทำบางส่วน | Prototype UI เปิดใช้งานบน Production URL; งาน Canva Presentation 8–12 สไลด์เป็นงานส่งแยกและยังไม่อยู่ใน repository |
+| 2. Assumptions | ทำแล้ว | แอปใช้ข้อมูล mock ใน browser/localStorage, Demo Access และกฎจำลองตาม A1–A9; ไม่มี backend หรือข้อมูลคลังจริง |
+| 3. อาการ → สาเหตุ | ทำแล้ว | ใช้เป็นกรอบปัญหาและ traceability สำหรับ prototype |
+| 4. Users & Roles | ทำบางส่วน | เมนูและ route guard แยก Role; Picker/Receiver อ่าน Inventory ได้; Users & Roles เป็นข้อมูลตัวอย่าง ไม่มีบัญชีองค์กรหรือสถานะ Active |
+| 5. Traceability Matrix | ทำแล้ว | มี BR-01 ถึง BR-08 เชื่อมกับหน้าจอและ KPI; ข้อจำกัดเฉพาะหน้าระบุใน 6.x ด้านล่าง |
+| 6.1 Login | ทำแล้ว | Demo credentials ใดก็ได้ เลือก Role และไปหน้าแรกของ Role |
+| 6.2 Dashboard | ทำบางส่วน | ตัวเลข derive จาก store; กราฟ 14 วันลิงก์ไป `range=30d` ตามบันทึกในข้อ 6.2 |
+| 6.3 Inventory | ทำบางส่วน | Search/filter/sort และ Product Detail ทำงาน; ยังไม่มี pagination สำหรับ 40 SKU |
+| 6.4 Receiving | ทำบางส่วน | รับเข้าและตรวจ capacity ได้; Location Recommendation banner ใน Receiving ถูกข้าม และไม่มีการย้ายสินค้า |
+| 6.5 Orders & Picking | ทำแล้ว | Role ที่มีสิทธิ์เริ่มงานและยืนยัน/Short pick ได้; SKU ผิดถูกบล็อก; critical flow ตรวจใน unit/store tests และ demo browser |
+| 6.6 Stock Movements | ทำบางส่วน | มี audit list และตัวกรอง; Movement actor อิงผู้ใช้ seed ตาม Role ไม่ใช่ชื่อที่กรอกตอน Login |
+| 6.7 Stock Adjustment | ทำแล้ว | Manager/Admin ปรับยอดพร้อมเหตุผล; ไม่สร้าง Movement เมื่อยอดตรงกันตาม rule |
+| 6.8 AI Insights | ทำแล้ว | หน้าเดียวมี Manager Summary, Stockout Prediction, Picking Route และ Storage Location Recommendation เป็นกฎที่อธิบายได้บนข้อมูลจำลอง |
+| 6.9 Reports | ทำแล้ว | Export CSV สำหรับ Inventory, Low-stock/reorder และ Movements ตาม filter |
+| 6.10 Users & Roles | ทำแล้ว | ชื่อและ Role จาก store พร้อมสิทธิ์จาก domain; ไม่มี Active status ตาม schema ปัจจุบัน |
+| 6.11 Settings | ทำบางส่วน | ธีม, system info, default reorder point และ reset ทำงาน; ยังเพิ่มสินค้าไม่ได้ และ Reset คืน locations เพิ่มจากรายการธุรกิจสามชนิดเดิม |
+| 6.12 Layout | ทำแล้ว | Sidebar/Topbar, Role menu, alerts, profile, theme และ Log Out มีใน Prototype |
+| 7. Data Model | ทำแล้ว | Central store ใช้ Product/Location/Order/Movement/User; mock seed ปัจจุบันมี 40 SKU, 56 locations และ 12 orders |
+| 8. Business Rules | ทำแล้ว | Stock status, stock actions, validation และ movement chain มี domain/store tests; ไม่ใช่ระบบ production |
+| 9. AI Concepts | ทำบางส่วน | ทั้ง 4 แนวคิดอยู่ใน AI Insights; Recommendation ไม่เชื่อม Receiving และไม่ย้ายสินค้า/สร้าง TRANSFER |
+| 10. KPI | ทำบางส่วน | UI แสดงตัวชี้วัดจาก mock store; ไม่มีข้อมูลจริงหรือผลลัพธ์หลังใช้งานจริง |
+| 11. Critical Test Flows | ทำบางส่วน | Automated tests ผ่านตามจำนวนล่าสุดใน `PROGRESS.md`; ขั้น manual เต็มรอบควรตรวจด้วย QA checklist และ demo script |
+| 12. Out of Scope / Roadmap | ทำแล้ว | Backend, ERP, barcode จริง, หลายคลัง, ML จริง, FIFO/FEFO และ reservation ยังไม่ทำตามขอบเขต Prototype |
+| 13. Design Direction | ทำบางส่วน | มี Light/Dark, responsive layouts และ focus/contrast fixes; ไม่มีการโหลด Inter/Noto Sans Thai โดยตรง |
+| 14. ลำดับการสร้าง | ทำบางส่วน | Prototype ถึง Round 5 Step 5d; Canva Presentation และช่องว่าง/Backlog ข้างต้นยังต้องจัดการแยก |
+
+Prototype นี้ใช้กฎอธิบายได้กับข้อมูลจำลองเท่านั้น ไม่ใช่ AI ที่ผ่านการ train และไม่มีผลความแม่นยำที่ยืนยันแล้ว.
