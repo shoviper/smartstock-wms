@@ -11,7 +11,7 @@
 | 2 | Inventory + Product Detail | Complete — Steps 2a and 2b complete |
 | 3 | Receiving, Orders & Picking, Stock Movements, Stock Adjustment | Complete — Steps 3a–3e verified |
 | 4 | Dashboard + AI Insights | Complete — Steps 4a–4e verified |
-| 5 | Reports, Users & Roles, Settings, mobile picking, polish, final documentation | Complete — Steps 5a–5d verified; final docs added, no app code changed in 5d |
+| 5 | Reports, Users & Roles, Settings, mobile picking, polish, final documentation | Complete — Steps 5a–5e verified; 5e resolves four presentation/validation Backlog items without changing business rules |
 
 ## Decisions
 - Tech stack: Vite + React + TypeScript; React Router for SPA navigation; React Context + `useReducer` for the central store; localStorage persistence; Vitest as a dev dependency for domain unit tests.
@@ -21,6 +21,8 @@
 - Product reorder points remain per-product; Manager/Admin can edit them in Product Detail. Settings default reorder point starts at 10 and applies only to future products; this prototype does not add products, and Reset demo data preserves the setting.
 - Users & Roles omits Active status because REQUIREMENTS.md 6.10 does not define it and `User` has no status field. Account activation/deactivation and status remain roadmap work tied to organization SSO.
 - Role capability display is derived from `domain/access.ts`; action guards use the same capability function. Reset confirmation is shared between Settings and the profile menu.
+- Round 5 Step 5e: the shared Reset dialog states that products, locations, orders and movements return to samples while session, theme and Settings are preserved. Movement type badges use the Dashboard's blue/lavender palette in all badge locations. Product Detail reorder-point input uses `parseWholeNumber` with its prior accepted values, validation errors and capacity guard retained. Inventory uses fixed table layout with title-backed ellipsis for product names.
+- Round 5 Step 5e verification: `npm run lint`, `npm run build`, and `npm test` pass (234 tests in 19 files). At 375px Inventory uses cards; at 820px its fixed table scrolls inside its wrapper; at 1280px the table fits. Light/Dark checks with full and filtered results found no document-level horizontal overflow.
 - Persistence v5 fills missing Settings while preserving saved Products, Locations, Orders, Movements, Users, session, and theme. `lastSavedAt` is envelope metadata outside StoreState and does not trigger another persistence write.
 - Replenishment suggestion: `max(0, reorderPoint + averageDailyUse × leadTimeDays − onHand)`, rounded up to an integer; show the formula and values in the explanation.
 - Location seed uses 56 locations across four zones (40 occupied by unique SKU assignments and 16 vacant); all include capacity and dispatch coordinates/distance. High-activity SKUs are close to dispatch on Levels 1–2; products in a category stay within one zone or two adjacent zones.
@@ -139,20 +141,16 @@
 - Demo dispatch coordinates model a simple straight-through warehouse path; validate distances and walking paths against a real warehouse layout before operational use.
 - Dashboard's 14-day movement chart links to Stock Movements with `range=30d` because the Movements page supports only today, 7d, 30d, and all; it has no 14d filter yet.
 - Seed order due dates are computed once when `src/data/seed.ts` loads; persisted old due dates can become overdue as time passes. Reset clones the module's seed values rather than recalculating them, so refresh the app first and then use Reset demo data for fresh due dates (seed code remains unchanged).
-- Stock Movements colors RECEIVE badges green and PICK badges yellow even though Movement types are not stock statuses, which may conflict with AGENTS.md's status-only red/yellow/green guidance. Defer the decision to Round 5; Dashboard uses non-status hues for Movement types.
 - Existing localStorage users retain their current business data and will not see the new Stockout Prediction seed examples until they choose **Reset demo data**; Reset replaces products, locations, orders, and movements after confirmation while preserving session and theme.
 - Manager Summary uses Order `completedAt` as a proxy for Short pick time because the system does not record when a short line occurred; more precise timing requires a future short-line timestamp.
 - Picking Route uses Manhattan distance from `(0,5)` and Location coordinates; 37/56 `dispatchDistanceMeters` values differ from this Manhattan distance (all 16 new vacant slots match). The current field remains used by Product Detail display and the seed fast-pick proximity test; old Location values remain unchanged.
 - Round 4e recommendations remain simulated and do not move products or create TRANSFER movements; Receiving banner was skipped by request.
-- Settings' reset confirmation currently says Products, Orders and Movements will reset but omits Locations, which are also restored to seed by the action.
 - Production font stack lists Inter first but does not load Inter or Noto Sans Thai; actual rendering uses available system fonts/fallbacks.
+
+## Known limitations / Roadmap
+- Round 5 (if time permits): Inventory still shows all 40 products on one page. To align with Stock Movements, paginate 25 per page by extracting pagination into a shared component/hook. Not tied to a BR. Risk: may affect Stock Movements and Inventory's existing query state. Production inventory (~2,000 SKUs) needs pagination or virtual scroll.
+- Round 5 (or when Users & Roles is implemented): Movement.userId currently points to the seeded user for each Role (Demo login reuses IDs such as `user-receiver-01` = Jamie Chen), so new Movements display the seed user's name rather than the name entered at Login. Proposed fix: assign a unique ID to each session and store that user in `state.users`; verify legacy session loading and add tests for session identity, Movement recording, and displayed name. Medium effort, about 4–6 files. Not implemented now. Demo intentionally maps users by Role; production should link Movements to the authenticated account.
+- Round 5: Copy paper (SKU-021) was tried at `C-03-01-1` and reverted because tests showed that the move affects the aisle shape expected by Picking Route. Keep the current location until the route invariant is explicitly revised and approved.
 
 ## Next step
 - Prepare the separate 8–12 slide Canva presentation and decide whether to schedule any remaining Backlog/known-issue work.
-
-## Backlog
-- Round 5 (if time permits): Inventory still shows all 40 products on one page. To align with Stock Movements, paginate 25 per page by extracting pagination into a shared component/hook. Not tied to a BR. Risk: may affect Stock Movements and Inventory's existing query state. Production inventory (~2,000 SKUs) needs pagination or virtual scroll.
-- Round 5 (or when Users & Roles is implemented): Movement.userId currently points to the seeded user for each Role (Demo login reuses IDs such as `user-receiver-01` = Jamie Chen), so new Movements display the seed user's name rather than the name entered at Login. Proposed fix: assign a unique ID to each session and store that user in `state.users`; verify legacy session loading and add tests for session identity, Movement recording, and displayed name. Medium effort, about 4–6 files. Not implemented now. Demo intentionally maps users by Role; production should link Movements to the authenticated account.
-- Round 2 follow-up: Use shared `parseWholeNumber` for the Product Detail Reorder point input to keep all numeric fields on the same validation rule. Its current integer-only regex rejects a raw `2.` string, so no direct partial-decimal bypass was found in code inspection.
-- Round 5: Move Copy paper (SKU-021) to Level 1 because paper is heavy; update its `locationId` in Movement records to match.
-- Round 5 Polish: Inventory table column widths shift when search/filter results change; set `table-layout: fixed` to keep widths stable (presentation issue, not a logic bug).

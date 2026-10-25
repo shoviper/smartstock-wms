@@ -97,7 +97,6 @@ export function SettingsPage() {
     </section>
 
     {resetOpen && <ResetDemoDialog
-      description="Products, locations, orders and movements will return to their original sample data. Your sign-in, theme and default reorder point will stay as they are."
       onCancel={cancelReset}
       onConfirm={confirmReset}
       returnFocusRef={resetTriggerRef}

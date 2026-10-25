@@ -56,13 +56,12 @@ User names shown in Movement records come from the role-linked sample users, not
 - Dashboard's 14-day Movement chart links to a Stock Movements view filtered to 30 days.
 - Inventory currently displays all 40 seeded products without pagination. This is not a production-scale inventory view.
 - The warehouse route distance is calculated from simulated coordinates; it is not a real walking distance.
-- Reset also restores Locations, although the confirmation message currently mentions only Products, Orders and Movements.
+- Reset restores products, locations, orders and movements while preserving the session, theme and Settings.
 
 ## Roadmap
 
 - Add Inventory pagination or virtual scrolling before using production-sized catalogues.
 - Link Movement actors to the authenticated session identity instead of the sample user assigned to each role.
-- Revisit the Product Detail reorder-point input's shared whole-number validation and stabilize Inventory table column widths.
 - Reassess the proposed Level 1 location for Copy paper (SKU-021) together with the existing aisle-03 route-geometry invariant and tests before changing seed data.
 - Add real backend/database, authentication/SSO, multi-warehouse support, barcode scanning, ERP integration, supplier/purchase-order workflows, stock reservation, lot/serial and FIFO/FEFO tracking only as separately scoped future work.
 - Provide a real add-product workflow before the Settings default reorder point can affect newly created products.

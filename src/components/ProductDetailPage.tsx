@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { getStockStatus, selectOpenOrdersForSku, selectSkuMovementHistory } from '../domain/inventory';
 import type { StockStatus } from '../domain/models';
+import { validateReorderPointInput } from '../domain/validation';
 import { useStore } from '../store/StoreProvider';
 
 const statusLabels: Record<StockStatus, string> = { OUT: 'Out', CRITICAL: 'Critical', LOW: 'Low', NORMAL: 'Normal' };
@@ -55,20 +56,16 @@ export function ProductDetailPage() {
   const fillPercent = Math.max(0, Math.min(100, capacityPercent));
   const markerPosition = (threshold: number) => capacity > 0 ? Math.max(0, Math.min(100, threshold / capacity * 100)) : 0;
   const tickTransform = (position: number) => position <= 0 ? 'translateX(0)' : position >= 100 ? 'translateX(-100%)' : 'translateX(-50%)';
-  const parsedReorderPoint = Number(reorderPointDraft);
-  const isIntegerInput = /^\d+$/.test(reorderPointDraft.trim()) && Number.isInteger(parsedReorderPoint);
-  const validationError = !isIntegerInput || parsedReorderPoint < 1
-    ? 'Enter a whole number of at least 1.'
-    : parsedReorderPoint > capacity
-      ? `Reorder point cannot exceed the location capacity of ${capacity}.`
-      : '';
-  const isReorderPointChanged = parsedReorderPoint !== product.reorderPoint;
+  const reorderPointValidation = validateReorderPointInput(reorderPointDraft, capacity);
+  const reorderPointValue = reorderPointValidation.ok ? reorderPointValidation.value : null;
+  const validationError = reorderPointValidation.message;
+  const isReorderPointChanged = reorderPointValue !== product.reorderPoint;
   const reorderPointError = validationError || (submitted && state.feedback?.kind === 'error' ? state.feedback.message : '');
 
   function handleReorderPointSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitted(true);
-    updateReorderPoint(product.sku, Number(reorderPointDraft));
+    if (reorderPointValue !== null) updateReorderPoint(product.sku, reorderPointValue);
   }
 
   function handleReorderPointChange(value: string) {
@@ -123,7 +120,7 @@ export function ProductDetailPage() {
           <form className="reorder-point-form" onSubmit={handleReorderPointSubmit}>
             <div className="reorder-point-input-row">
               <label htmlFor="reorder-point-input">New reorder point</label>
-              <input aria-describedby="reorder-point-help" aria-invalid={Boolean(reorderPointError)} id="reorder-point-input" max={capacity || undefined} min="1" onChange={(event) => handleReorderPointChange(event.target.value)} step="1" type="number" value={reorderPointDraft} />
+              <input aria-describedby="reorder-point-help" aria-invalid={Boolean(reorderPointError)} id="reorder-point-input" inputMode="numeric" onChange={(event) => handleReorderPointChange(event.target.value)} type="text" value={reorderPointDraft} />
               <button className="product-primary-button" disabled={Boolean(validationError) || !isReorderPointChanged} type="submit">Save</button>
             </div>
             <p className={`reorder-point-hint${reorderPointError ? ' reorder-point-hint-error field-error-message' : ''}`} id="reorder-point-help">{reorderPointError || `Enter a whole number from 1 to ${capacity} ${product.unit}.`}</p>

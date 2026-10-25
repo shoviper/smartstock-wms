@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isQuantityReceivable, parseWholeNumber } from './validation';
+import { isQuantityReceivable, parseWholeNumber, validateReorderPointInput } from './validation';
 
 describe('parseWholeNumber', () => {
   it.each(['20', ' 5 ', '007'])('accepts %j', (raw) => {
@@ -11,6 +11,31 @@ describe('parseWholeNumber', () => {
       expect(parseWholeNumber(raw).ok).toBe(false);
     },
   );
+});
+
+describe('Product Detail reorder point parser inputs', () => {
+  it.each(['2.', '2.0', '1e3', '-1', '+1', '1,000', ' 2 ', '１２', ''])('keeps the existing whole-number error for %j', (raw) => {
+    expect(validateReorderPointInput(raw, 100)).toEqual({ ok: false, message: 'Enter a whole number of at least 1.' });
+  });
+
+  it('keeps zero invalid and accepts a valid ASCII whole number', () => {
+    expect(validateReorderPointInput('0', 100)).toEqual({ ok: false, message: 'Enter a whole number of at least 1.' });
+    expect(validateReorderPointInput('2', 100)).toEqual({ ok: true, value: 2, message: '' });
+  });
+
+  it('keeps the existing capacity error for values above the assigned location capacity', () => {
+    expect(validateReorderPointInput('101', 100)).toEqual({
+      ok: false,
+      message: 'Reorder point cannot exceed the location capacity of 100.',
+    });
+  });
+
+  it('keeps the previous capacity message for finite unsafe integers', () => {
+    expect(validateReorderPointInput('9007199254740992', 100)).toEqual({
+      ok: false,
+      message: 'Reorder point cannot exceed the location capacity of 100.',
+    });
+  });
 });
 
 describe('isQuantityReceivable', () => {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_INVENTORY_FILTERS, filterAndSortInventory, getStockStatus, hasActiveInventoryFilters, parseInventoryQuery, resetInventoryFilters, selectSkuMovementHistory, serializeInventoryQuery, toggleInventorySort, updateReorderPoint, InventoryActionError, type InventoryFilters, type InventoryRow } from './inventory';
 import { createInitialStoreState } from '../store/persistence';
+import { parseWholeNumber } from './validation';
 
 const rows: InventoryRow[] = [
   { product: { sku: 'SKU-003', name: 'Red tape', category: 'Packing', unit: 'roll', locationId: 'loc-a', onHand: 0, reorderPoint: 10, leadTimeDays: 4 }, zone: 'North', status: 'OUT' },
@@ -131,6 +132,20 @@ describe('Product Detail selectors and reorder point updates', () => {
     const product = state.products['SKU-001'];
     const capacity = state.locations[product.locationId].capacity;
     expect(() => updateReorderPoint(state, product.sku, capacity + 1)).toThrowError(/cannot exceed the location capacity/);
+  });
+
+  it('keeps Product Detail reorder point values bounded after shared parsing', () => {
+    const initial = createInitialStoreState();
+    const state = { ...initial, session: { id: 'admin-01', name: 'Admin', role: 'ADMIN' as const } };
+    const product = state.products['SKU-001'];
+    const capacity = state.locations[product.locationId].capacity;
+    const zero = parseWholeNumber('0');
+    const overCapacity = parseWholeNumber(String(capacity + 1));
+
+    expect(zero).toEqual({ ok: true, value: 0 });
+    expect(() => updateReorderPoint(state, product.sku, zero.ok ? zero.value : -1)).toThrowError(/whole number of at least 1/);
+    expect(overCapacity).toEqual({ ok: true, value: capacity + 1 });
+    expect(() => updateReorderPoint(state, product.sku, overCapacity.ok ? overCapacity.value : -1)).toThrowError(/cannot exceed the location capacity/);
   });
 
   it.each(['PICKER', 'RECEIVER', null] as const)('blocks reorder point updates for role %s', (role) => {
