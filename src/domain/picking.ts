@@ -1,5 +1,6 @@
 import type { Order, OrderLine, StoreState } from './models';
 import { pickItem, type PickItemInput, type StockActionResult } from './stock';
+import { getRoleCapabilities } from './access';
 
 export type ShortPickReason = 'Out of stock' | 'Damaged' | 'Not found at location' | 'Other';
 
@@ -19,7 +20,7 @@ function requireActivePicker(state: StoreState, userId: string) {
   const user = state.users[userId];
   if (!user) throw new PickingActionError('The signed-in user was not found.', 'UNKNOWN_USER');
   if (!state.session || state.currentUserId !== state.session.id || state.session.id !== userId || state.session.role !== user.role
-    || !['PICKER', 'MANAGER', 'ADMIN'].includes(user.role)) {
+    || !getRoleCapabilities(user.role).canPick) {
     throw new PickingActionError('Only the signed-in Picker, Manager, or Admin can pick stock.', 'FORBIDDEN');
   }
 }

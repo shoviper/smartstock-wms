@@ -10,6 +10,8 @@ import { StockAdjustmentPage } from './components/StockAdjustmentPage';
 import { DashboardPage } from './components/DashboardPage';
 import { AIInsightsPage } from './components/AIInsightsPage';
 import { ReportsPage } from './components/ReportsPage';
+import { UsersRolesPage } from './components/UsersRolesPage';
+import { SettingsPage } from './components/SettingsPage';
 import { OrderDetailPage, OrdersListPage } from './components/OrdersPickingPage';
 import { getRouteRedirect, ALL_MENU_ITEMS } from './domain/access';
 import { useStore } from './store/StoreProvider';
@@ -51,8 +53,10 @@ export default function App() {
         <Route element={<StockMovementsPage />} path="/stock-movements" />
         <Route element={<StockAdjustmentPage />} path="/adjustment" />
         <Route element={<AIInsightsPage />} path="/ai-insights" />
+        <Route element={<UsersRolesPage />} path="/users" />
+        <Route element={<SettingsPage />} path="/settings" />
         {ALL_MENU_ITEMS.map(({ path, label }) => (
-          path === '/' || path === '/inventory' || path === '/receiving' || path === '/orders' || path === '/movements' || path === '/adjustment' || path === '/ai-insights' || path === '/reports' ? null : <Route element={<PagePlaceholder label={label} />} key={path} path={path} />
+          path === '/' || path === '/inventory' || path === '/receiving' || path === '/orders' || path === '/movements' || path === '/adjustment' || path === '/ai-insights' || path === '/reports' || path === '/users' || path === '/settings' ? null : <Route element={<PagePlaceholder label={label} />} key={path} path={path} />
         ))}
         <Route element={<ReportsPage />} path="/reports" />
         <Route element={<Navigate replace to="/" />} path="*" />

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canAccessRoute, getRoleHomePath, getRoleMenu, getRouteRedirect, type MenuGroup } from './access';
+import { canAccessRoute, getRoleCapabilities, getRoleHomePath, getRoleMenu, getRolePermissionsMatrix, getRouteRedirect, type MenuGroup } from './access';
 import type { Role } from './models';
 
 const menuPaths = (groups: MenuGroup[]) => groups.flatMap((group) => group.items.map((menuItem) => menuItem.path));
@@ -12,6 +12,21 @@ describe('role-based access rules', () => {
     ['ADMIN', ['/', '/inventory', '/receiving', '/orders', '/movements', '/adjustment', '/ai-insights', '/reports', '/users', '/settings']],
   ] as const)('%s sees only its configured menu items', (role, expectedPaths) => {
     expect(menuPaths(getRoleMenu(role as Role))).toEqual(expectedPaths);
+  });
+
+  it('builds the role permission table from the access menu and action capabilities', () => {
+    const matrix = getRolePermissionsMatrix();
+    expect(matrix.map(({ role }) => role)).toEqual(['PICKER', 'RECEIVER', 'MANAGER', 'ADMIN']);
+    for (const row of matrix) {
+      expect(row.menus).toEqual(getRoleMenu(row.role).flatMap((group) => group.items.map(({ label }) => label)));
+      expect(row.capabilities).toEqual(getRoleCapabilities(row.role));
+    }
+    expect(matrix.map(({ role, capabilities }) => [role, capabilities])).toEqual([
+      ['PICKER', { canReceive: false, canPick: true, canAdjust: false, canUpdateReorderPoint: false }],
+      ['RECEIVER', { canReceive: true, canPick: false, canAdjust: false, canUpdateReorderPoint: false }],
+      ['MANAGER', { canReceive: true, canPick: true, canAdjust: true, canUpdateReorderPoint: true }],
+      ['ADMIN', { canReceive: true, canPick: true, canAdjust: true, canUpdateReorderPoint: true }],
+    ]);
   });
 
   it.each([
@@ -49,6 +64,7 @@ describe('role-based access rules', () => {
     expect(canAccessRoute('MANAGER', '/users')).toBe(false);
     expect(canAccessRoute('ADMIN', '/users')).toBe(true);
     expect(canAccessRoute('ADMIN', '/not-a-page')).toBe(false);
+    for (const role of ['PICKER', 'RECEIVER', 'MANAGER'] as const) expect(canAccessRoute(role, '/users')).toBe(false);
   });
 
   it('redirects unauthenticated, unauthorized, and invalid routes without depending on UI', () => {
@@ -67,4 +83,14 @@ describe('role-based access rules', () => {
     expect(getRouteRedirect(manager, '/unknown')).toBe('/');
     expect(getRouteRedirect(manager, '/reports')).toBeNull();
   });
+
+  it.each(['PICKER', 'RECEIVER', 'MANAGER'] as const)('%s cannot open Users & Roles', (role) => {
+    const state = createRoleSession(role);
+    expect(canAccessRoute(role, '/users')).toBe(false);
+    expect(getRouteRedirect(state, '/users')).toBe(getRoleHomePath(role));
+  });
 });
+
+function createRoleSession(role: Role) {
+  return { id: `user-${role.toLowerCase()}-01`, name: `${role} Demo`, role };
+}

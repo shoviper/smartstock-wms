@@ -188,6 +188,7 @@ describe('stock actions', () => {
       currentUserId: managerId,
       session: initial.users[managerId],
       theme: 'dark',
+      settings: { defaultReorderPoint: 27 },
     };
     const reset = storeReducer(changed, { type: 'demo/reset' });
 
@@ -200,6 +201,7 @@ describe('stock actions', () => {
     expect(reset.currentUserId).toBe(managerId);
     expect(reset.session).toEqual(initial.users[managerId]);
     expect(reset.theme).toBe('dark');
+    expect(reset.settings).toEqual({ defaultReorderPoint: 27 });
   });
 
   it('classifies stock at each threshold boundary', () => {

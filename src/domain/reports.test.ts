@@ -5,7 +5,7 @@ import type { StoreState } from './models';
 import { createReportFilename, formatReportMovementTime, selectInventoryReport, selectLowStockReport, selectMovementReport, toCsv } from './reports';
 
 function state(): StoreState {
-  return { ...createSeedBusinessData(), currentUserId: null, session: null, theme: 'light', feedback: null };
+  return { ...createSeedBusinessData(), currentUserId: null, session: null, theme: 'light', settings: { defaultReorderPoint: 10 }, feedback: null };
 }
 
 describe('reports', () => {

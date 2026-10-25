@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useReducer, type PropsWithChildren } from 'react';
+import { createContext, useContext, useEffect, useMemo, useReducer, useState, type PropsWithChildren } from 'react';
 import { createSeedBusinessData } from '../data/seed';
 import {
   adjustStock,
@@ -12,7 +12,8 @@ import type { StoreState, Theme, User } from '../domain/models';
 import { InventoryActionError, updateReorderPoint as updateProductReorderPoint } from '../domain/inventory';
 import { OrderActionError, startPicking as startOrderPicking } from '../domain/orders';
 import { completeShortPick, confirmPicking, PickingActionError, type ShortPickInput } from '../domain/picking';
-import { loadStoreState, persistStoreState } from './persistence';
+import { SettingsActionError, updateDefaultReorderPoint as updateAppDefaultReorderPoint } from '../domain/settings';
+import { loadStoreState, persistStoreState, readPersistenceInfo, STORE_VERSION, STORAGE_KEY, type PersistenceInfo } from './persistence';
 
 type StoreAction =
   | { type: 'stock/receive'; input: ReceiveStockInput }
@@ -21,6 +22,7 @@ type StoreAction =
   | { type: 'orders/start-picking'; orderId: string; userId: string }
   | { type: 'orders/short-pick'; input: ShortPickInput }
   | { type: 'inventory/reorder-point'; sku: string; reorderPoint: number }
+  | { type: 'settings/default-reorder-point'; value: number }
   | { type: 'session/login'; user: User }
   | { type: 'session/logout' }
   | { type: 'theme/set'; theme: Theme }
@@ -68,6 +70,15 @@ function runPickingAction(state: StoreState, operation: () => ReturnType<typeof 
   }
 }
 
+function runSettingsAction(state: StoreState, operation: () => StoreState): StoreState {
+  try {
+    return { ...operation(), feedback: { kind: 'success', message: 'Default reorder point updated.' } };
+  } catch (error) {
+    const message = error instanceof SettingsActionError ? error.message : 'The setting could not be updated.';
+    return { ...state, feedback: { kind: 'error', message } };
+  }
+}
+
 export function storeReducer(state: StoreState, action: StoreAction): StoreState {
   switch (action.type) {
     case 'stock/receive':
@@ -82,6 +93,8 @@ export function storeReducer(state: StoreState, action: StoreAction): StoreState
       return runPickingAction(state, () => completeShortPick(state, action.input));
     case 'inventory/reorder-point':
       return runInventoryAction(state, () => updateProductReorderPoint(state, action.sku, action.reorderPoint));
+    case 'settings/default-reorder-point':
+      return runSettingsAction(state, () => updateAppDefaultReorderPoint(state, action.value));
     case 'session/login':
       return { ...state, currentUserId: action.user.id, session: action.user, feedback: null };
     case 'session/logout':
@@ -108,12 +121,14 @@ export function storeReducer(state: StoreState, action: StoreAction): StoreState
 
 export interface StoreContextValue {
   state: StoreState;
+  persistenceInfo: PersistenceInfo;
   receiveStock(input: ReceiveStockInput): void;
   pickItem(input: PickItemInput): void;
   shortPick(input: ShortPickInput): void;
   adjustStock(input: AdjustStockInput): void;
   startPicking(orderId: string): void;
   updateReorderPoint(sku: string, reorderPoint: number): void;
+  updateDefaultReorderPoint(value: number): void;
   login(user: User): void;
   logout(): void;
   setTheme(theme: Theme): void;
@@ -126,26 +141,32 @@ const StoreContext = createContext<StoreContextValue | null>(null);
 
 export function StoreProvider({ children }: PropsWithChildren) {
   const [state, dispatch] = useReducer(storeReducer, undefined, loadStoreState);
+  const [persistenceInfo, setPersistenceInfo] = useState(readPersistenceInfo);
 
   useEffect(() => {
-    persistStoreState(state);
+    const savedAt = new Date();
+    if (persistStoreState(state, undefined, savedAt)) {
+      setPersistenceInfo({ storageKey: STORAGE_KEY, version: STORE_VERSION, lastSavedAt: savedAt.toISOString() });
+    }
   }, [state]);
 
   const value = useMemo<StoreContextValue>(() => ({
     state,
+    persistenceInfo,
     receiveStock: (input) => dispatch({ type: 'stock/receive', input }),
     pickItem: (input) => dispatch({ type: 'stock/pick', input }),
     shortPick: (input) => dispatch({ type: 'orders/short-pick', input }),
     adjustStock: (input) => dispatch({ type: 'stock/adjust', input }),
     startPicking: (orderId) => dispatch({ type: 'orders/start-picking', orderId, userId: state.session?.id ?? '' }),
     updateReorderPoint: (sku, reorderPoint) => dispatch({ type: 'inventory/reorder-point', sku, reorderPoint }),
+    updateDefaultReorderPoint: (value) => dispatch({ type: 'settings/default-reorder-point', value }),
     login: (user) => dispatch({ type: 'session/login', user }),
     logout: () => dispatch({ type: 'session/logout' }),
     setTheme: (theme) => dispatch({ type: 'theme/set', theme }),
     toggleTheme: () => dispatch({ type: 'theme/toggle' }),
     resetDemoData: () => dispatch({ type: 'demo/reset' }),
     clearFeedback: () => dispatch({ type: 'feedback/clear' }),
-  }), [state]);
+  }), [state, persistenceInfo]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

@@ -23,6 +23,21 @@ export interface MenuGroup {
   items: MenuItem[];
 }
 
+export interface RoleCapabilities {
+  canReceive: boolean;
+  canPick: boolean;
+  canAdjust: boolean;
+  canUpdateReorderPoint: boolean;
+}
+
+export interface RolePermissionsRow {
+  role: Role;
+  menus: string[];
+  capabilities: RoleCapabilities;
+}
+
+export const APP_ROLES: Role[] = ['PICKER', 'RECEIVER', 'MANAGER', 'ADMIN'];
+
 export const ALL_MENU_ITEMS: MenuItem[] = [
   { path: '/', label: 'Dashboard' },
   { path: '/inventory', label: 'Inventory' },
@@ -60,6 +75,23 @@ export function getRoleMenu(role: Role): MenuGroup[] {
   const exploreItems = roleExplorePaths[role].map(item);
   if (exploreItems.length > 0) groups.push({ id: 'explore', label: 'EXPLORE', items: exploreItems });
   return groups;
+}
+
+export function getRoleCapabilities(role: Role): RoleCapabilities {
+  return {
+    canReceive: role === 'RECEIVER' || role === 'MANAGER' || role === 'ADMIN',
+    canPick: role === 'PICKER' || role === 'MANAGER' || role === 'ADMIN',
+    canAdjust: role === 'MANAGER' || role === 'ADMIN',
+    canUpdateReorderPoint: role === 'MANAGER' || role === 'ADMIN',
+  };
+}
+
+export function getRolePermissionsMatrix(): RolePermissionsRow[] {
+  return APP_ROLES.map((role) => ({
+    role,
+    menus: getRoleMenu(role).flatMap((group) => group.items.map((menuItem) => menuItem.label)),
+    capabilities: getRoleCapabilities(role),
+  }));
 }
 
 export function getRoleHomePath(role: Role): AppPath {

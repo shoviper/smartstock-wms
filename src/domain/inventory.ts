@@ -1,4 +1,5 @@
-import type { Movement, Order, Product, Role, StockStatus, StoreState } from './models';
+import type { Movement, Order, Product, StockStatus, StoreState } from './models';
+import { getRoleCapabilities } from './access';
 
 export type InventorySort = 'sku' | 'name' | 'onHand' | 'status';
 export type SortDirection = 'asc' | 'desc';
@@ -96,8 +97,7 @@ export function updateReorderPoint(state: StoreState, sku: string, reorderPoint:
   if (!product) throw new InventoryActionError('UNKNOWN_SKU', `Unknown SKU: ${sku}`);
   const location = state.locations[product.locationId];
   if (!location) throw new InventoryActionError('UNKNOWN_LOCATION', `Unknown location: ${product.locationId}`);
-  const allowedRoles: Role[] = ['MANAGER', 'ADMIN'];
-  if (!state.session || !allowedRoles.includes(state.session.role)) {
+  if (!state.session || !getRoleCapabilities(state.session.role).canUpdateReorderPoint) {
     throw new InventoryActionError('FORBIDDEN', 'Only a Manager or Admin can update the reorder point.');
   }
   if (!Number.isInteger(reorderPoint) || reorderPoint < 1) {

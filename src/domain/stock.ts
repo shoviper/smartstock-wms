@@ -2,10 +2,10 @@ import type {
   Movement,
   MovementType,
   Order,
-  Role,
   StoreState,
   User,
 } from './models';
+import { getRoleCapabilities } from './access';
 
 export type StockErrorCode =
   | 'UNKNOWN_SKU'
@@ -145,7 +145,7 @@ export function receiveStock(state: StoreState, input: ReceiveStockInput): Stock
   const product = state.products[input.sku];
   if (!product) throw new StockActionError('UNKNOWN_SKU', `Unknown SKU: ${input.sku}`);
   const user = requireValidUser(state, input.userId);
-  if (!['RECEIVER', 'MANAGER', 'ADMIN'].includes(user.role)) {
+  if (!getRoleCapabilities(user.role).canReceive) {
     throw new StockActionError('FORBIDDEN', 'Only a Receiver, Manager, or Admin can receive stock.');
   }
   const locationId = product.locationId;
@@ -225,8 +225,7 @@ export function pickItem(state: StoreState, input: PickItemInput): StockActionRe
 
 export function adjustStock(state: StoreState, input: AdjustStockInput): StockActionResult {
   const user = requireValidUser(state, input.userId);
-  const allowedRoles: Role[] = ['MANAGER', 'ADMIN'];
-  if (!allowedRoles.includes(user.role)) {
+  if (!getRoleCapabilities(user.role).canAdjust) {
     throw new StockActionError('FORBIDDEN', 'Only a Manager or Admin can adjust stock.');
   }
   if (!Number.isInteger(input.countedQty) || input.countedQty < 0) {

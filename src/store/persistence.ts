@@ -1,12 +1,20 @@
 import { createSeedBusinessData } from '../data/seed';
 import type { StoreState, Theme } from '../domain/models';
+import { DEFAULT_REORDER_POINT } from '../domain/settings';
 
-export const STORE_VERSION = 4;
+export const STORE_VERSION = 5;
 export const STORAGE_KEY = 'smartstock-wms-store';
 
 export interface PersistedStoreEnvelope {
   version: number;
-  state: Pick<StoreState, 'products' | 'locations' | 'orders' | 'movements' | 'users' | 'currentUserId' | 'session' | 'theme'>;
+  lastSavedAt: string;
+  state: Pick<StoreState, 'products' | 'locations' | 'orders' | 'movements' | 'users' | 'currentUserId' | 'session' | 'theme' | 'settings'>;
+}
+
+export interface PersistenceInfo {
+  storageKey: string;
+  version: number | null;
+  lastSavedAt: string | null;
 }
 
 const validRoles = ['PICKER', 'RECEIVER', 'MANAGER', 'ADMIN'];
@@ -37,6 +45,7 @@ export function createInitialStoreState(): StoreState {
     currentUserId: null,
     session: null,
     theme: 'light',
+    settings: { defaultReorderPoint: DEFAULT_REORDER_POINT },
     feedback: null,
   };
 }
@@ -58,15 +67,16 @@ export function loadStoreState(storage = getBrowserStorage()): StoreState {
     const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object') return createInitialStoreState();
     const envelope = parsed as Partial<PersistedStoreEnvelope>;
-    if ((envelope.version !== 1 && envelope.version !== 2 && envelope.version !== 3 && envelope.version !== STORE_VERSION) || !isPersistedState(envelope.state)) {
+    if (![1, 2, 3, 4, STORE_VERSION].includes(envelope.version ?? -1) || !isPersistedState(envelope.state)) {
       return createInitialStoreState();
     }
-    const seedData = createSeedBusinessData();
-    // Add newly seeded locations by ID only. A saved location with the same ID always wins.
-    const locations = { ...seedData.locations, ...envelope.state.locations };
+    const savedSettings = envelope.state.settings;
+    const defaultReorderPoint = savedSettings && Number.isSafeInteger(savedSettings.defaultReorderPoint) && savedSettings.defaultReorderPoint >= 1
+      ? savedSettings.defaultReorderPoint
+      : DEFAULT_REORDER_POINT;
     return {
       ...envelope.state,
-      locations,
+      settings: { defaultReorderPoint },
       session: envelope.state.session ?? null,
       feedback: null,
     };
@@ -75,10 +85,11 @@ export function loadStoreState(storage = getBrowserStorage()): StoreState {
   }
 }
 
-export function persistStoreState(state: StoreState, storage = getBrowserStorage()): boolean {
+export function persistStoreState(state: StoreState, storage = getBrowserStorage(), now = new Date()): boolean {
   if (!storage) return false;
   const envelope: PersistedStoreEnvelope = {
     version: STORE_VERSION,
+    lastSavedAt: now.toISOString(),
     state: {
       products: state.products,
       locations: state.locations,
@@ -88,6 +99,7 @@ export function persistStoreState(state: StoreState, storage = getBrowserStorage
       currentUserId: state.currentUserId,
       session: state.session,
       theme: state.theme as Theme,
+      settings: state.settings,
     },
   };
   try {
@@ -96,4 +108,25 @@ export function persistStoreState(state: StoreState, storage = getBrowserStorage
   } catch {
     return false;
   }
+}
+
+export function readPersistenceInfo(storage = getBrowserStorage()): PersistenceInfo {
+  let version: number | null = null;
+  let lastSavedAt: string | null = null;
+  try {
+    const raw = storage?.getItem(STORAGE_KEY);
+    if (raw) {
+      const envelope: unknown = JSON.parse(raw);
+      if (envelope && typeof envelope === 'object') {
+        const candidate = envelope as Record<string, unknown>;
+        if (typeof candidate.version === 'number') version = candidate.version;
+        if (typeof candidate.lastSavedAt === 'string' && Number.isFinite(Date.parse(candidate.lastSavedAt))) {
+          lastSavedAt = candidate.lastSavedAt;
+        }
+      }
+    }
+  } catch {
+    // Storage may be unavailable or contain an invalid envelope.
+  }
+  return { storageKey: STORAGE_KEY, version, lastSavedAt };
 }

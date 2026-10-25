@@ -16,7 +16,7 @@ function movement(sku: string, type: Movement['type'], qty: number, timestamp = 
 function stateFor(products: Product[], movements: Movement[] = []): StoreState {
   return {
     products: Object.fromEntries(products.map((product) => [product.sku, product])),
-    locations: {}, orders: {}, movements, users: {}, currentUserId: null, session: null, theme: 'light', feedback: null,
+    locations: {}, orders: {}, movements, users: {}, currentUserId: null, session: null, theme: 'light', settings: { defaultReorderPoint: 10 }, feedback: null,
   };
 }
 

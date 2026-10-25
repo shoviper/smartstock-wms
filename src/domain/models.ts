@@ -95,5 +95,10 @@ export interface StoreState extends BusinessData {
   currentUserId: string | null;
   session: User | null;
   theme: Theme;
+  settings: AppSettings;
   feedback: StoreFeedback | null;
+}
+
+export interface AppSettings {
+  defaultReorderPoint: number;
 }

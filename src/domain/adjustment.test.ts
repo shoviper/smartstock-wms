@@ -61,7 +61,7 @@ describe('isLargeVariance', () => {
 
 describe('adjustStock integration', () => {
   it('creates an ADJUST Movement with a continuous before/after and combined reason', () => {
-    const state = { ...createSeedBusinessData(), currentUserId: null, session: null, theme: 'light' as const, feedback: null };
+    const state = { ...createSeedBusinessData(), currentUserId: null, session: null, theme: 'light' as const, settings: { defaultReorderPoint: 10 }, feedback: null };
     const product = Object.values(state.products).find((item) => item.onHand > 0)!;
     const userId = Object.values(state.users).find((user) => user.role === 'MANAGER')!.id;
     const result = adjustStock(state, { sku: product.sku, countedQty: product.onHand - 1, userId, reason: 'Damaged goods: forklift accident' });

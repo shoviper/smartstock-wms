@@ -1,4 +1,5 @@
 import type { Location, Order, OrderLine, OrderPriority, Product, StoreState, User } from './models';
+import { getRoleCapabilities } from './access';
 
 export type OrderStatusTab = 'all' | 'pending' | 'in-progress' | 'completed';
 
@@ -100,8 +101,7 @@ export function startPicking(state: StoreState, input: StartPickingInput): Store
   const user: User | undefined = state.users[input.userId];
   if (!user) throw new OrderActionError('UNKNOWN_USER', `Unknown user: ${input.userId}`);
   const session = state.session;
-  const allowedRoles = ['PICKER', 'MANAGER', 'ADMIN'];
-  if (!session || state.currentUserId !== session.id || session.id !== user.id || session.role !== user.role || !allowedRoles.includes(session.role)) {
+  if (!session || state.currentUserId !== session.id || session.id !== user.id || session.role !== user.role || !getRoleCapabilities(session.role).canPick) {
     throw new OrderActionError('FORBIDDEN', 'Only the signed-in Picker, Manager, or Admin can start picking.');
   }
   if (order.status !== 'PENDING') {

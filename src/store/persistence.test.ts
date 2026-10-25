@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { StoreState } from '../domain/models';
 import { updateReorderPoint } from '../domain/inventory';
-import { createInitialStoreState, loadStoreState, persistStoreState, STORE_VERSION, STORAGE_KEY } from './persistence';
+import { createInitialStoreState, loadStoreState, persistStoreState, readPersistenceInfo, STORE_VERSION, STORAGE_KEY } from './persistence';
+import { DEFAULT_REORDER_POINT } from '../domain/settings';
 
 function createMemoryStorage(): Storage {
   const entries = new Map<string, string>();
@@ -23,6 +24,7 @@ describe('versioned localStorage persistence', () => {
       currentUserId: 'user-manager-01',
       session: { id: 'user-manager-01', name: 'Demo Manager', role: 'MANAGER' as const },
       theme: 'dark' as const,
+      settings: { defaultReorderPoint: 31 },
     };
 
     expect(persistStoreState(state, storage)).toBe(true);
@@ -33,6 +35,7 @@ describe('versioned localStorage persistence', () => {
       currentUserId: 'user-manager-01',
       session: state.session,
       theme: 'dark',
+      settings: { defaultReorderPoint: 31 },
       feedback: null,
     });
   });
@@ -51,7 +54,7 @@ describe('versioned localStorage persistence', () => {
     expect(loadStoreState(storage).products['SKU-001'].reorderPoint).toBe(42);
   });
 
-  it.each([1, 2, 3, 4])('adds only missing Locations to v%s data and preserves all saved business/session values', (version) => {
+  it.each([1, 2, 3, 4])('fills the missing app setting in v%s data without changing saved data', (version) => {
     const storage = createMemoryStorage();
     const base = createInitialStoreState();
     const savedState: StoreState = {
@@ -71,22 +74,35 @@ describe('versioned localStorage persistence', () => {
     };
     const businessValuesBefore = {
       products: structuredClone(savedState.products),
+      locations: structuredClone(savedState.locations),
       orders: structuredClone(savedState.orders),
       movements: structuredClone(savedState.movements),
+      users: structuredClone(savedState.users),
       session: structuredClone(savedState.session),
       theme: savedState.theme,
       currentUserId: savedState.currentUserId,
     };
-    storage.setItem(STORAGE_KEY, JSON.stringify({ version, state: savedState }));
+    const legacyState = { ...savedState, settings: undefined };
+    storage.setItem(STORAGE_KEY, JSON.stringify({ version, state: legacyState }));
 
     const loaded = loadStoreState(storage);
     expect({
-      products: loaded.products, orders: loaded.orders, movements: loaded.movements,
-      session: loaded.session, theme: loaded.theme, currentUserId: loaded.currentUserId,
+      products: loaded.products, locations: loaded.locations, orders: loaded.orders, movements: loaded.movements,
+      users: loaded.users, session: loaded.session, theme: loaded.theme, currentUserId: loaded.currentUserId,
     }).toEqual(businessValuesBefore);
     expect(loaded.locations['A-01-01-1']).toEqual(savedState.locations['A-01-01-1']);
-    expect(Object.keys(loaded.locations)).toHaveLength(56);
-    expect(Object.values(loaded.locations).filter((location) => location.aisle === '03')).toHaveLength(16);
+    expect(loaded.settings).toEqual({ defaultReorderPoint: DEFAULT_REORDER_POINT });
+  });
+
+  it('stores lastSavedAt in envelope metadata, outside the business state', () => {
+    const storage = createMemoryStorage();
+    const state = createInitialStoreState();
+    const now = new Date('2026-10-25T07:30:00.000Z');
+    expect(persistStoreState(state, storage, now)).toBe(true);
+    const saved = JSON.parse(storage.getItem(STORAGE_KEY) ?? '{}');
+    expect(saved.lastSavedAt).toBe(now.toISOString());
+    expect(saved.state.lastSavedAt).toBeUndefined();
+    expect(readPersistenceInfo(storage)).toEqual({ storageKey: STORAGE_KEY, version: STORE_VERSION, lastSavedAt: now.toISOString() });
   });
 
   it('falls back to seed data when the stored version is unsupported', () => {
