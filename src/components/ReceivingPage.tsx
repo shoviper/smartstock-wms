@@ -77,7 +77,7 @@ export function ReceivingPage() {
           <label className="receiving-label" htmlFor="receiving-quantity">Quantity <span aria-hidden="true">*</span></label>
           <input aria-describedby={quantityDescribedBy} aria-invalid={Boolean((quantityTouched && quantityError) || capacityError)} autoComplete="off" id="receiving-quantity" inputMode="numeric" onBlur={() => setQuantityTouched(true)} onChange={(event) => { setQuantity(event.target.value); setQuantityTouched(true); clearFeedbackState(); }} placeholder="Whole number" required type="text" value={quantity} />
           <span className="receiving-help" id="receiving-quantity-help">Enter a whole number of at least 1.</span>
-          {(quantityTouched && quantityError || capacityError) && <span className="receiving-error" id="receiving-quantity-error" role="alert">{capacityError || quantityError}</span>}
+          {(quantityTouched && quantityError || capacityError) && <span className="receiving-error field-error-message" id="receiving-quantity-error" role="alert">{capacityError || quantityError}</span>}
         </div>
         <div className="receiving-field">
           <label className="receiving-label" htmlFor="receiving-reference">Reference <span className="receiving-optional">(optional)</span></label>
@@ -92,7 +92,7 @@ export function ReceivingPage() {
         <h2>Product summary</h2>
         <dl><div><dt>Product</dt><dd>{product.name}</dd></div><div><dt>Category</dt><dd>{product.category}</dd></div><div><dt>On-hand</dt><dd>{product.onHand} {product.unit}</dd></div><div><dt>Assigned location</dt><dd>{product.locationId}</dd></div><div><dt>Capacity available</dt><dd>{availableCapacity} {product.unit}</dd></div><div><dt>Status</dt><dd><span className={`inventory-status inventory-status-${currentStatus?.toLowerCase()}`}>{currentStatus && statusLabels[currentStatus]}</span></dd></div></dl>
       </section>}
-      {feedback && <div aria-live="polite" className={`receiving-feedback ${feedback.kind === 'success' ? 'feedback-success' : 'feedback-error'}`} role={feedback.kind === 'error' ? 'alert' : 'status'}>
+      {feedback && <div aria-live="polite" className={`receiving-feedback feedback-banner ${feedback.kind === 'success' ? 'feedback-success feedback-banner-success' : 'feedback-error feedback-banner-error'}`} role={feedback.kind === 'error' ? 'alert' : 'status'}>
         {feedback.kind === 'success' ? <>Receipt saved. <Link to={`/inventory/${encodeURIComponent(receivedSku)}`}>View inventory</Link></> : feedback.message}
       </div>}
       <div className="receiving-actions-row receiving-actions-row-with-preview">

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState, type RefObject } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getRoleLabel } from '../domain/access';
 import { selectProductsByStatus } from '../domain/inventory';
@@ -8,6 +8,7 @@ import { ResetDemoDialog } from './ResetDemoDialog';
 
 interface TopbarProps {
   onOpenNavigation(): void;
+  navigationTriggerRef: RefObject<HTMLButtonElement | null>;
 }
 
 const alertOrder: StockStatus[] = ['OUT', 'CRITICAL', 'LOW'];
@@ -18,11 +19,12 @@ const alertLabel: Record<StockStatus, string> = {
   NORMAL: 'Normal',
 };
 
-export function Topbar({ onOpenNavigation }: TopbarProps) {
+export function Topbar({ onOpenNavigation, navigationTriggerRef }: TopbarProps) {
   const navigate = useNavigate();
   const { state, logout, resetDemoData } = useStore();
   const [openPanel, setOpenPanel] = useState<'alerts' | 'profile' | null>(null);
   const [resetConfirmationOpen, setResetConfirmationOpen] = useState(false);
+  const profileTriggerRef = useRef<HTMLButtonElement>(null);
   const session = state.session;
   if (!session) return null;
   const canResetDemoData = session.role === 'MANAGER' || session.role === 'ADMIN';
@@ -49,7 +51,7 @@ export function Topbar({ onOpenNavigation }: TopbarProps) {
     <>
     <header className="topbar">
       <div className="topbar-leading">
-        <button aria-label="Open navigation" className="mobile-menu-button" onClick={onOpenNavigation} type="button">
+        <button aria-label="Open navigation" className="mobile-menu-button" onClick={onOpenNavigation} ref={navigationTriggerRef} type="button">
           <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
         </button>
         <label className="topbar-search">
@@ -99,6 +101,7 @@ export function Topbar({ onOpenNavigation }: TopbarProps) {
             aria-expanded={openPanel === 'profile'}
             className="profile-button"
             onClick={() => setOpenPanel(openPanel === 'profile' ? null : 'profile')}
+            ref={profileTriggerRef}
             type="button"
           >
             <span aria-hidden="true" className="profile-avatar">{session.name.trim().slice(0, 1).toUpperCase() || 'D'}</span>
@@ -116,7 +119,7 @@ export function Topbar({ onOpenNavigation }: TopbarProps) {
         </div>
       </div>
     </header>
-    {resetConfirmationOpen && <ResetDemoDialog onCancel={() => setResetConfirmationOpen(false)} onConfirm={handleResetDemoData} />}
+    {resetConfirmationOpen && <ResetDemoDialog onCancel={() => setResetConfirmationOpen(false)} onConfirm={handleResetDemoData} returnFocusRef={profileTriggerRef} />}
     </>
   );
 }

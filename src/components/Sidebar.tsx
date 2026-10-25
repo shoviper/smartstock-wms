@@ -1,17 +1,22 @@
+import { useRef, type RefObject } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { getRoleHomePath, getRoleMenu } from '../domain/access';
 import { useStore } from '../store/StoreProvider';
+import { useAccessibleOverlay } from '../hooks/useAccessibleOverlay';
 import { Brand } from './Brand';
 
 interface SidebarProps {
   open: boolean;
   onClose(): void;
+  returnFocusRef: RefObject<HTMLElement | null>;
 }
 
-export function Sidebar({ open, onClose }: SidebarProps) {
+export function Sidebar({ open, onClose, returnFocusRef }: SidebarProps) {
   const navigate = useNavigate();
   const { state, logout, toggleTheme } = useStore();
+  const sidebarRef = useRef<HTMLElement>(null);
   const session = state.session;
+  useAccessibleOverlay(open, onClose, sidebarRef, returnFocusRef);
   if (!session) return null;
 
   const groups = getRoleMenu(session.role);
@@ -25,7 +30,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   return (
     <>
       {open && <button aria-label="Close navigation" className="drawer-backdrop" onClick={onClose} type="button" />}
-      <aside aria-label="Sidebar" className={`sidebar${open ? ' sidebar-open' : ''}`}>
+      <aside aria-label="Sidebar" className={`sidebar${open ? ' sidebar-open' : ''}`} ref={sidebarRef}>
         <NavLink className="sidebar-brand-link" onClick={onClose} to={getRoleHomePath(session.role)}>
           <Brand />
         </NavLink>

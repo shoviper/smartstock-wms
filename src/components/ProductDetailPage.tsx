@@ -126,8 +126,8 @@ export function ProductDetailPage() {
               <input aria-describedby="reorder-point-help" aria-invalid={Boolean(reorderPointError)} id="reorder-point-input" max={capacity || undefined} min="1" onChange={(event) => handleReorderPointChange(event.target.value)} step="1" type="number" value={reorderPointDraft} />
               <button className="product-primary-button" disabled={Boolean(validationError) || !isReorderPointChanged} type="submit">Save</button>
             </div>
-            <p className={`reorder-point-hint${reorderPointError ? ' reorder-point-hint-error' : ''}`} id="reorder-point-help">{reorderPointError || `Enter a whole number from 1 to ${capacity} ${product.unit}.`}</p>
-            <p aria-live="polite" className={`reorder-point-feedback${submitted && state.feedback?.kind === 'success' ? ' feedback-success' : ''}`}>{submitted && state.feedback?.kind === 'success' ? state.feedback.message : ''}</p>
+            <p className={`reorder-point-hint${reorderPointError ? ' reorder-point-hint-error field-error-message' : ''}`} id="reorder-point-help">{reorderPointError || `Enter a whole number from 1 to ${capacity} ${product.unit}.`}</p>
+            <p aria-live="polite" className={`reorder-point-feedback${submitted && state.feedback?.kind === 'success' ? ' feedback-banner feedback-banner-success' : ''}`} role="status">{submitted && state.feedback?.kind === 'success' ? state.feedback.message : ''}</p>
           </form>
         ) : <p className="product-readonly-note">Read only for your role. Current reorder point: {product.reorderPoint} {product.unit}.</p>}
       </section>

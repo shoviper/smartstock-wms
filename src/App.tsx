@@ -1,4 +1,5 @@
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { AppLayout } from './components/AppLayout';
 import { LoginPage } from './components/LoginPage';
@@ -13,7 +14,7 @@ import { ReportsPage } from './components/ReportsPage';
 import { UsersRolesPage } from './components/UsersRolesPage';
 import { SettingsPage } from './components/SettingsPage';
 import { OrderDetailPage, OrdersListPage } from './components/OrdersPickingPage';
-import { getRouteRedirect, ALL_MENU_ITEMS } from './domain/access';
+import { getRoleHomePath, getRouteRedirect, ALL_MENU_ITEMS } from './domain/access';
 import { useStore } from './store/StoreProvider';
 
 function PagePlaceholder({ label }: { label: string }) {
@@ -27,12 +28,48 @@ function PagePlaceholder({ label }: { label: string }) {
   );
 }
 
+function NotFoundPage({ homePath }: { homePath: string }) {
+  return <main className="not-found-page">
+    <p className="eyebrow">SMARTSTOCK WMS</p>
+    <h1>We couldn’t find that page</h1>
+    <p>Check the address or return to your home page.</p>
+    <Link className="primary-button not-found-link" to={homePath}>Go to home</Link>
+  </main>;
+}
+
+function isKnownPath(path: string) {
+  return ALL_MENU_ITEMS.some(({ path: menuPath }) => menuPath === path)
+    || /^\/inventory\/[^/]+$/.test(path)
+    || path === '/orders-picking'
+    || /^\/orders-picking\/[^/]+$/.test(path)
+    || path === '/stock-movements';
+}
+
+function pageTitle(path: string) {
+  if (path === '/login') return 'Login';
+  if (/^\/inventory\/[^/]+$/.test(path)) return decodeURIComponent(path.split('/')[2]);
+  if (/^\/orders-picking\/[^/]+$/.test(path)) return `Order ${decodeURIComponent(path.split('/')[2])}`;
+  const pages: Record<string, string> = {
+    '/': 'Dashboard', '/inventory': 'Inventory', '/receiving': 'Receiving', '/orders': 'Orders & Picking',
+    '/orders-picking': 'Orders & Picking', '/movements': 'Stock Movements', '/stock-movements': 'Stock Movements',
+    '/adjustment': 'Stock Adjustment', '/ai-insights': 'AI Insights', '/reports': 'Reports',
+    '/users': 'Users & Roles', '/settings': 'Settings',
+  };
+  return pages[path] ?? ALL_MENU_ITEMS.find((item) => item.path === path)?.label ?? 'Not found';
+}
+
 export default function App() {
   const { state } = useStore();
   const location = useLocation();
   const redirect = getRouteRedirect(state.session, location.pathname);
   const themed = (content: ReactNode) => <div className="app-root" data-theme={state.theme}>{content}</div>;
+  const unknownPath = !isKnownPath(location.pathname) && location.pathname !== '/login';
 
+  useEffect(() => {
+    document.title = `${pageTitle(location.pathname)} · SmartStock WMS`;
+  }, [location.pathname]);
+
+  if (unknownPath) return themed(<NotFoundPage homePath={state.session ? getRoleHomePath(state.session.role) : '/login'} />);
   if (redirect === '/login' && location.pathname !== '/login') {
     return themed(<Navigate replace to="/login" />);
   }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type MouseEvent, type RefObject } from 'react';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   DEFAULT_ORDER_LIST_FILTERS,
@@ -13,6 +13,7 @@ import type { Order, OrderStatus } from '../domain/models';
 import { getLinePickingStatus, selectNextPendingLine, type ShortPickReason } from '../domain/picking';
 import { parseWholeNumber } from '../domain/validation';
 import { useStore } from '../store/StoreProvider';
+import { useAccessibleOverlay } from '../hooks/useAccessibleOverlay';
 
 const statusTabs: { id: OrderStatusTab; label: string }[] = [
   { id: 'all', label: 'All' }, { id: 'pending', label: 'Pending' },
@@ -142,9 +143,11 @@ interface PickDialogProps {
   errorMessage: string;
   onClose(): void;
   onConfirm(values: { locationId: string; scannedSku: string; quantity: number; reason?: ShortPickReason; otherReason?: string }): void;
+  returnFocusRef: RefObject<HTMLElement | null>;
 }
 
-function PickDialog({ orderId, sku, position, name, remaining, onHand, mode, errorMessage, onClose, onConfirm }: PickDialogProps) {
+function PickDialog({ orderId, sku, position, name, remaining, onHand, mode, errorMessage, onClose, onConfirm, returnFocusRef }: PickDialogProps) {
+  const dialogRef = useRef<HTMLElement>(null);
   const [locationId, setLocationId] = useState('');
   const [scannedSku, setScannedSku] = useState('');
   const [quantityRaw, setQuantityRaw] = useState(String(mode === 'short' ? 0 : remaining));
@@ -168,6 +171,7 @@ function PickDialog({ orderId, sku, position, name, remaining, onHand, mode, err
           : mode === 'short' && quantityValue === remaining ? 'Use Confirm pick when the full remaining quantity is available.' : '';
   const reasonError = mode === 'short' && reason === 'Other' && !otherReason.trim() ? 'Enter a reason for Other.' : '';
   const canSubmit = !locationError && !skuError && !quantityError && !reasonError;
+  useAccessibleOverlay(true, onClose, dialogRef, returnFocusRef);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -176,28 +180,28 @@ function PickDialog({ orderId, sku, position, name, remaining, onHand, mode, err
   }
 
   return <div className="pick-dialog-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-    <section aria-labelledby="pick-dialog-title" aria-modal="true" className="pick-dialog" onKeyDown={(event) => { if (event.key === 'Escape') onClose(); }} role="dialog">
+    <section aria-labelledby="pick-dialog-title" aria-modal="true" className="pick-dialog app-dialog" ref={dialogRef} role="dialog" tabIndex={-1}>
       <header><div><p className="eyebrow">{orderId}</p><h2 id="pick-dialog-title">{mode === 'short' ? 'Short pick' : 'Confirm pick'}</h2><p>{name} · <strong>{position}</strong></p></div><button aria-label="Close" className="pick-dialog-close" onClick={onClose} type="button">×</button></header>
       <form onSubmit={handleSubmit}>
         <label htmlFor="pick-location">Location code</label>
         <input aria-describedby={locationError ? 'pick-location-error' : undefined} aria-invalid={Boolean(locationError)} autoComplete="off" autoFocus id="pick-location" onChange={(event) => setLocationId(event.target.value)} value={locationId} />
-        {locationError && <small className="pick-field-error" id="pick-location-error">{locationError}</small>}
+        {locationError && <small className="pick-field-error field-error-message" id="pick-location-error">{locationError}</small>}
         <label htmlFor="pick-sku">SKU</label>
         <input aria-describedby={skuError ? 'pick-sku-error' : undefined} aria-invalid={Boolean(skuError)} autoComplete="off" id="pick-sku" onChange={(event) => setScannedSku(event.target.value)} value={scannedSku} />
-        {skuError && <small className="pick-field-error" id="pick-sku-error">{skuError}</small>}
+        {skuError && <small className="pick-field-error field-error-message" id="pick-sku-error">{skuError}</small>}
         <label htmlFor="pick-quantity">{mode === 'short' ? 'Quantity actually picked' : 'Quantity'}</label>
         <input aria-describedby="pick-quantity-error" aria-invalid={Boolean(quantityError)} id="pick-quantity" inputMode="numeric" onChange={(event) => setQuantityRaw(event.target.value)} type="text" value={quantityRaw} />
-        {quantityError && <small className="pick-field-error" id="pick-quantity-error">{quantityError}</small>}
+        {quantityError && <small className="pick-field-error field-error-message" id="pick-quantity-error">{quantityError}</small>}
         {mode === 'short' && <>
           <label htmlFor="pick-short-reason">Short pick reason</label>
           <select id="pick-short-reason" onChange={(event) => setReason(event.target.value as ShortPickReason)} value={reason}>
             <option>Out of stock</option><option>Damaged</option><option>Not found at location</option><option>Other</option>
           </select>
           {reason === 'Other' && <input aria-describedby={reasonError ? 'pick-short-reason-error' : undefined} aria-label="Other short pick reason" aria-required="true" id="pick-short-reason-details" onChange={(event) => setOtherReason(event.target.value)} placeholder="Describe the reason" required value={otherReason} />}
-          {reasonError && <small className="pick-field-error" id="pick-short-reason-error">{reasonError}</small>}
+          {reasonError && <small className="pick-field-error field-error-message" id="pick-short-reason-error">{reasonError}</small>}
         </>}
         <button className="pick-simulate-button" onClick={() => { setLocationId(position); setScannedSku(sku); }} type="button">Simulate scan</button>
-        {errorMessage && <p aria-live="assertive" className="order-feedback order-feedback-error">{errorMessage}</p>}
+        {errorMessage && <p aria-live="assertive" className="order-feedback order-feedback-error feedback-banner feedback-banner-error">{errorMessage}</p>}
         <div className="pick-dialog-actions"><button className="pick-cancel-button" onClick={onClose} type="button">Cancel</button><button className="order-start-button" disabled={!canSubmit} type="submit">{mode === 'short' ? 'Complete short pick' : 'Confirm pick'}</button></div>
       </form>
     </section>
@@ -210,6 +214,7 @@ export function OrderDetailPage() {
   const { state, startPicking, pickItem, shortPick, clearFeedback } = useStore();
   const [submitted, setSubmitted] = useState(false);
   const [activePick, setActivePick] = useState<{ sku: string; mode: PickMode } | null>(null);
+  const pickTriggerRef = useRef<HTMLButtonElement>(null);
   const [submittingPick, setSubmittingPick] = useState(false);
   const submitLock = useRef(false);
   const order = state.orders[orderId];
@@ -246,8 +251,9 @@ export function OrderDetailPage() {
     startPicking(order.id);
   }
 
-  function openPick(sku: string, mode: PickMode) {
+  function openPick(sku: string, mode: PickMode, trigger: HTMLButtonElement) {
     clearFeedback();
+    pickTriggerRef.current = trigger;
     setActivePick({ sku, mode });
   }
 
@@ -262,9 +268,9 @@ export function OrderDetailPage() {
     else pickItem(common);
   }
 
-  function openNextPendingLine() {
+  function openNextPendingLine(event: MouseEvent<HTMLButtonElement>) {
     const next = selectNextPendingLine(pathLines);
-    if (next) openPick(next.sku, 'confirm');
+    if (next) openPick(next.sku, 'confirm', event.currentTarget);
   }
 
   return <main className="page-content order-detail-page">
@@ -273,7 +279,7 @@ export function OrderDetailPage() {
       <div><p className="eyebrow">SMARTSTOCK WMS · ORDER DETAIL</p><h1>{order.id}</h1><p className="order-detail-customer">{order.customer}</p></div>
       <div className="order-detail-actions">{order.status === 'PENDING' && canStart && <button className="order-start-button" onClick={handleStartPicking} type="button">Start Picking</button>}<StatusBadge status={order.status} /></div>
     </header>
-    {feedbackMessage && <p aria-live="polite" className={`order-feedback${state.feedback?.kind === 'error' ? ' order-feedback-error' : feedbackMessage.toLocaleLowerCase().includes('marked short') ? ' order-feedback-short' : ' order-feedback-success'}`} role="status">{feedbackMessage}<button aria-label="Dismiss message" className="order-feedback-dismiss" onClick={() => { clearFeedback(); setSubmitted(false); }} type="button">×</button></p>}
+    {feedbackMessage && <p aria-live="polite" className={`order-feedback feedback-banner${state.feedback?.kind === 'error' ? ' order-feedback-error feedback-banner-error' : feedbackMessage.toLocaleLowerCase().includes('marked short') ? ' order-feedback-short feedback-banner-warning' : ' order-feedback-success feedback-banner-success'}`} role="status">{feedbackMessage}<button aria-label="Dismiss message" className="order-feedback-dismiss" onClick={() => { clearFeedback(); setSubmitted(false); }} type="button">×</button></p>}
     <section aria-label="Order information" className="order-detail-summary">
       <article><span>Priority</span><PriorityBadge priority={order.priority} /></article>
       <article><span>Due</span><strong className={due.overdue ? 'order-due-overdue' : ''}>{due.label}</strong><small>{formatDate(order.dueAt)}</small></article>
@@ -290,7 +296,7 @@ export function OrderDetailPage() {
           const position = product ? state.locations[product.locationId]?.id ?? product.locationId : '—';
           const lineStatus = getLinePickingStatus(line, product?.onHand ?? 0);
           const remaining = line.qty - line.pickedQty - (line.shortQty ?? 0);
-          return <tr key={`${line.sku}-${index}`}><td>{String(index + 1).padStart(2, '0')}</td><td><strong className="order-location-code">{position}</strong></td><td className="inventory-sku">{line.sku}</td><td>{product?.name ?? line.sku}</td><td>{line.qty} {product?.unit ?? ''}</td><td>{line.pickedQty} {product?.unit ?? ''}{(line.shortQty ?? 0) > 0 && <small className="order-short-line">{line.pickedQty} picked · {line.shortQty} short<br />{line.shortReason}</small>}</td><td>{product?.onHand ?? '—'} {product?.unit ?? ''}</td><td><span className={`order-line-status order-line-status-${lineStatus.toLowerCase().replaceAll(' ', '-')}`}>{lineStatus}</span>{remaining > 0 && order.status === 'IN_PROGRESS' && canStart && <div className="order-line-actions"><button className={`pick-line-button${selectNextPendingLine(pathLines)?.sku === line.sku ? ' pick-line-button-next' : ' pick-line-button-secondary'}`} onClick={() => openPick(line.sku, 'confirm')} type="button">Confirm pick</button><button className="short-line-button" onClick={() => openPick(line.sku, 'short')} type="button">Can't find / Short pick</button></div>}</td></tr>;
+          return <tr key={`${line.sku}-${index}`}><td>{String(index + 1).padStart(2, '0')}</td><td><strong className="order-location-code">{position}</strong></td><td className="inventory-sku">{line.sku}</td><td>{product?.name ?? line.sku}</td><td>{line.qty} {product?.unit ?? ''}</td><td>{line.pickedQty} {product?.unit ?? ''}{(line.shortQty ?? 0) > 0 && <small className="order-short-line">{line.pickedQty} picked · {line.shortQty} short<br />{line.shortReason}</small>}</td><td>{product?.onHand ?? '—'} {product?.unit ?? ''}</td><td><span className={`order-line-status order-line-status-${lineStatus.toLowerCase().replaceAll(' ', '-')}`}>{lineStatus}</span>{remaining > 0 && order.status === 'IN_PROGRESS' && canStart && <div className="order-line-actions"><button className={`pick-line-button${selectNextPendingLine(pathLines)?.sku === line.sku ? ' pick-line-button-next' : ' pick-line-button-secondary'}`} onClick={(event) => openPick(line.sku, 'confirm', event.currentTarget)} type="button">Confirm pick</button><button className="short-line-button" onClick={(event) => openPick(line.sku, 'short', event.currentTarget)} type="button">Can't find / Short pick</button></div>}</td></tr>;
         })}
       </tbody></table></div>
       <div className="order-pick-cards">{pathLines.map((line, index) => {
@@ -298,7 +304,7 @@ export function OrderDetailPage() {
         const position = product ? state.locations[product.locationId]?.id ?? product.locationId : '—';
         const lineStatus = getLinePickingStatus(line, product?.onHand ?? 0);
         const remaining = line.qty - line.pickedQty - (line.shortQty ?? 0);
-        return <article className="order-pick-card" key={`${line.sku}-${index}`}><div className="order-pick-card-heading"><span>Line {index + 1}</span><span className={`order-line-status order-line-status-${lineStatus.toLowerCase().replaceAll(' ', '-')}`}>{lineStatus}</span></div><strong className="order-location-code">{position}</strong><div className="order-pick-card-product"><strong>{product?.name ?? line.sku}</strong><span>{line.sku}</span></div><dl><div><dt>Required</dt><dd>{line.qty} {product?.unit ?? ''}</dd></div><div><dt>Picked</dt><dd>{(line.shortQty ?? 0) > 0 ? <>{line.pickedQty} picked · {line.shortQty} short<small className="order-short-line">{line.shortReason}</small></> : `${line.pickedQty} ${product?.unit ?? ''}`}</dd></div><div><dt>On-hand now</dt><dd>{product?.onHand ?? '—'} {product?.unit ?? ''}</dd></div></dl>{remaining > 0 && order.status === 'IN_PROGRESS' && canStart && <div className="order-line-actions"><button className={`pick-line-button${selectNextPendingLine(pathLines)?.sku === line.sku ? ' pick-line-button-next' : ' pick-line-button-secondary'}`} onClick={() => openPick(line.sku, 'confirm')} type="button">Confirm pick</button><button className="short-line-button" onClick={() => openPick(line.sku, 'short')} type="button">Can't find / Short pick</button></div>}</article>;
+        return <article className="order-pick-card" key={`${line.sku}-${index}`}><div className="order-pick-card-heading"><span>Line {index + 1}</span><span className={`order-line-status order-line-status-${lineStatus.toLowerCase().replaceAll(' ', '-')}`}>{lineStatus}</span></div><strong className="order-location-code">{position}</strong><div className="order-pick-card-product"><strong>{product?.name ?? line.sku}</strong><span>{line.sku}</span></div><dl><div><dt>Required</dt><dd>{line.qty} {product?.unit ?? ''}</dd></div><div><dt>Picked</dt><dd>{(line.shortQty ?? 0) > 0 ? <>{line.pickedQty} picked · {line.shortQty} short<small className="order-short-line">{line.shortReason}</small></> : `${line.pickedQty} ${product?.unit ?? ''}`}</dd></div><div><dt>On-hand now</dt><dd>{product?.onHand ?? '—'} {product?.unit ?? ''}</dd></div></dl>{remaining > 0 && order.status === 'IN_PROGRESS' && canStart && <div className="order-line-actions"><button className={`pick-line-button${selectNextPendingLine(pathLines)?.sku === line.sku ? ' pick-line-button-next' : ' pick-line-button-secondary'}`} onClick={(event) => openPick(line.sku, 'confirm', event.currentTarget)} type="button">Confirm pick</button><button className="short-line-button" onClick={(event) => openPick(line.sku, 'short', event.currentTarget)} type="button">Can't find / Short pick</button></div>}</article>;
       })}</div>
     </section>
     {order.status === 'IN_PROGRESS' && canStart && <div className="mobile-picking-bar"><Progress order={order} /><button className="order-start-button" disabled={!selectNextPendingLine(pathLines)} onClick={openNextPendingLine} type="button">Next line</button></div>}
@@ -307,7 +313,7 @@ export function OrderDetailPage() {
       const product = line ? state.products[line.sku] : undefined;
       const currentLocation = product ? state.locations[product.locationId] : undefined;
       if (!line || !product || !currentLocation) return null;
-      return <PickDialog key={`${activePick.sku}-${activePick.mode}`} errorMessage={state.feedback?.kind === 'error' ? state.feedback.message : ''} mode={activePick.mode} name={product.name} onClose={() => { if (!submittingPick) setActivePick(null); }} onConfirm={handlePickConfirm} onHand={product.onHand} orderId={order.id} position={currentLocation.id} remaining={line.qty - line.pickedQty - (line.shortQty ?? 0)} sku={line.sku} />;
+      return <PickDialog key={`${activePick.sku}-${activePick.mode}`} errorMessage={state.feedback?.kind === 'error' ? state.feedback.message : ''} mode={activePick.mode} name={product.name} onClose={() => { if (!submittingPick) setActivePick(null); }} onConfirm={handlePickConfirm} onHand={product.onHand} orderId={order.id} position={currentLocation.id} remaining={line.qty - line.pickedQty - (line.shortQty ?? 0)} returnFocusRef={pickTriggerRef} sku={line.sku} />;
     })()}
   </main>;
 }
