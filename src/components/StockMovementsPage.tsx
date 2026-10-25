@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   DEFAULT_MOVEMENT_FILTERS,
   MOVEMENT_TYPES,
@@ -109,7 +109,7 @@ export function StockMovementsPage() {
   }
 
   return <main className="page-content movements-page">
-    <header className="movements-header"><div><p className="eyebrow">SMARTSTOCK WMS · AUDIT LOG</p><h1>Stock Movements</h1><p className="intro">Review and filter stock changes recorded in the store.</p></div></header>
+    <header className="movements-header"><div><p className="eyebrow">SMARTSTOCK WMS · AUDIT LOG</p><h1>Stock Movements</h1><p className="intro">Review and filter stock changes recorded in the store.</p></div><Link className="movements-export-link" to={`/reports${serializeMovementQuery(filters).size ? `?${serializeMovementQuery(filters)}` : ''}`}>Export this view</Link></header>
 
     <section aria-label="Movement filters" className="movements-filters">
       <label className="inventory-filter-field movements-filter-field"><span className="inventory-filter-label">Time range</span><select onChange={(event) => updateFilters((current) => ({ ...current, range: event.target.value as MovementFilters['range'], page: 1 }))} value={filters.range}>{Object.entries(rangeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
