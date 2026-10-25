@@ -1,8 +1,13 @@
-import type { Movement, Product, StockStatus, StoreState } from './models';
+import type { Location, Movement, Product, StockStatus, StoreState } from './models';
 import { getStockStatus } from './inventory';
 import { isLargeVariance } from './adjustment';
 
 export const STOCKOUT_WINDOW_DAYS = 30;
+export const FAST_MOVER_PERCENTILE = 0.75;
+export const LOCATION_DISPATCH_POINT = { x: 0, y: 5 } as const;
+// The 75th-percentile cutoff is calculated from SKUs with positive PICK demand only.
+// No-demand SKUs are always slow; ties at the cutoff are included as fast movers.
+export const LOCATION_SCORE_WEIGHTS = { categoryZone: 30, velocityFit: 40, capacityFit: 30 } as const;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export type StockoutRisk = 'STOCKED_OUT' | 'HIGH' | 'AT_RISK' | 'WATCH' | 'OK' | 'NO_RECENT_DEMAND';
@@ -57,6 +62,26 @@ export interface ManagerSummary {
   doFirst: ManagerIssue[];
   explanation: string;
   reviewNote: string;
+}
+
+export interface LocationRecommendation {
+  location: Location;
+  totalScore: number;
+  factorScores: { categoryZone: number; velocityFit: number; capacityFit: number };
+  reason: string;
+  dispatchDistanceMeters: number;
+}
+
+export interface ReslottingSuggestion {
+  product: Product;
+  pickedUnits30Days: number;
+  fastMover: boolean;
+  currentLocation: Location;
+  recommendation: LocationRecommendation;
+  currentDistanceMeters: number;
+  distanceChangeMeters: number;
+  improvement: number;
+  reason: string;
 }
 
 export function getStockoutMethodSummary(): StockoutMethodSummary {
@@ -439,6 +464,147 @@ export function selectStockoutInsights(state: StoreState, now: Date): StockoutIn
   for (const prediction of predictions) riskCounts[prediction.risk] += 1;
   const nowMs = now.getTime();
   return { asOf: new Date(Number.isFinite(nowMs) ? nowMs : 0), predictions, riskCounts };
+}
+
+function distanceFromDispatch(location: Location): number {
+  return Math.abs(location.coordinates.x - LOCATION_DISPATCH_POINT.x)
+    + Math.abs(location.coordinates.y - LOCATION_DISPATCH_POINT.y);
+}
+
+function categoryHomeZones(state: StoreState): Map<string, string> {
+  const counts = new Map<string, Map<string, number>>();
+  for (const product of Object.values(state.products)) {
+    const location = state.locations[product.locationId];
+    if (!location) continue;
+    const zones = counts.get(product.category) ?? new Map<string, number>();
+    zones.set(location.zone, (zones.get(location.zone) ?? 0) + 1);
+    counts.set(product.category, zones);
+  }
+  return new Map([...counts].map(([category, zones]) => [category,
+    [...zones].sort(([zoneA, countA], [zoneB, countB]) => countB - countA || zoneA.localeCompare(zoneB))[0]?.[0] ?? '',
+  ]));
+}
+
+function fastMoverSkus(state: StoreState, now: Date): Set<string> {
+  const demand = selectStockoutInsights(state, now).predictions
+    .map((prediction) => ({ sku: prediction.product.sku, units: prediction.pickedUnits30Days }))
+    .filter((row) => row.units > 0)
+    .sort((left, right) => left.units - right.units || left.sku.localeCompare(right.sku));
+  if (demand.length === 0) return new Set();
+  const cutoffIndex = Math.max(0, Math.ceil(demand.length * FAST_MOVER_PERCENTILE) - 1);
+  const cutoffUnits = demand[cutoffIndex].units;
+  return new Set(demand.filter((row) => row.units >= cutoffUnits).map((row) => row.sku));
+}
+
+function requiredCapacity(product: Product, prediction: StockoutPrediction): number {
+  return finiteNonNegative(product.onHand) + prediction.recommendedReplenishment;
+}
+
+function scoreLocation(
+  product: Product,
+  location: Location,
+  state: StoreState,
+  prediction: StockoutPrediction,
+  fastMover: boolean,
+  homeZone: string,
+): LocationRecommendation {
+  const maxDistance = Math.max(1, ...Object.values(state.locations).map(distanceFromDispatch));
+  const distance = distanceFromDispatch(location);
+  const categoryZone = location.zone === homeZone ? LOCATION_SCORE_WEIGHTS.categoryZone : 0;
+  const closeness = 1 - Math.min(1, distance / maxDistance);
+  const levelSuitability = fastMover
+    ? (location.level <= 2 ? 1 : 0.4)
+    : (location.level >= 3 ? 1 : 0.5);
+  const velocityFit = Math.round(LOCATION_SCORE_WEIGHTS.velocityFit * (0.5 * (fastMover ? closeness : 1 - closeness) + 0.5 * levelSuitability));
+  const required = requiredCapacity(product, prediction);
+  const capacityFit = location.capacity >= required
+    ? LOCATION_SCORE_WEIGHTS.capacityFit
+    : Math.round(LOCATION_SCORE_WEIGHTS.capacityFit * location.capacity / Math.max(1, required));
+  const totalScore = categoryZone + velocityFit + capacityFit;
+  const requiredText = Number.isFinite(required) ? required : 0;
+  const zoneReason = categoryZone > 0
+    ? `Zone ${location.zone} matches the ${product.category} home zone.`
+    : `Zone ${location.zone} is outside the ${product.category} home zone ${homeZone}.`;
+  const velocityReason = fastMover
+    ? `${distance} m from dispatch at level ${location.level} suits fast-moving stock.`
+    : `${distance} m from dispatch at level ${location.level} suits slower-moving stock.`;
+  const capacityReason = `Capacity ${location.capacity} ${location.capacity >= required ? 'covers' : 'is below'} the ${requiredText} units needed (on-hand plus suggested fill).`;
+  return {
+    location,
+    totalScore,
+    factorScores: { categoryZone, velocityFit, capacityFit },
+    dispatchDistanceMeters: distance,
+    reason: `${zoneReason} ${velocityReason} ${capacityReason}`,
+  };
+}
+
+export function recommendLocations(product: Product, state: StoreState, now: Date, count = 3): LocationRecommendation[] {
+  const prediction = selectStockoutInsights(state, now).predictions.find((row) => row.product.sku === product.sku);
+  if (!prediction) return [];
+  const occupied = new Set(Object.values(state.products).map((row) => row.locationId));
+  const homeZone = categoryHomeZones(state).get(product.category) ?? '';
+  const fastMover = fastMoverSkus(state, now).has(product.sku);
+  return Object.values(state.locations)
+    .filter((location) => !occupied.has(location.id) && location.capacity >= requiredCapacity(product, prediction))
+    .map((location) => scoreLocation(product, location, state, prediction, fastMover, homeZone))
+    .sort((left, right) => right.totalScore - left.totalScore
+      || left.dispatchDistanceMeters - right.dispatchDistanceMeters
+      || left.location.level - right.location.level
+      || left.location.id.localeCompare(right.location.id))
+    .slice(0, Math.max(0, Math.floor(count)));
+}
+
+export function selectReslottingSuggestions(state: StoreState, now: Date, count = 5): ReslottingSuggestion[] {
+  const predictions = new Map(selectStockoutInsights(state, now).predictions.map((row) => [row.product.sku, row]));
+  const fastSkus = fastMoverSkus(state, now);
+  const homeZones = categoryHomeZones(state);
+  const occupied = new Set(Object.values(state.products).map((product) => product.locationId));
+  const freeLocations = Object.values(state.locations).filter((location) => !occupied.has(location.id));
+  const candidates: ReslottingSuggestion[] = [];
+  const activeSlots = new Set<string>();
+
+  // Allocate one vacancy at a time to the strongest eligible SKU; ties resolve by SKU then location ID.
+  while (activeSlots.size < freeLocations.length && candidates.length < Object.keys(state.products).length) {
+    const round: ReslottingSuggestion[] = [];
+    for (const product of Object.values(state.products)) {
+      if (candidates.some((suggestion) => suggestion.product.sku === product.sku)) continue;
+      const currentLocation = state.locations[product.locationId];
+      const prediction = predictions.get(product.sku);
+      if (!currentLocation || !prediction) continue;
+      const isFast = fastSkus.has(product.sku);
+      const currentDistance = distanceFromDispatch(currentLocation);
+      const unsuitable = isFast ? currentDistance >= 32 || currentLocation.level >= 3 : currentDistance <= 14 && currentLocation.level <= 2;
+      if (!unsuitable) continue;
+      const choices = freeLocations.filter((location) => !activeSlots.has(location.id)
+        && location.capacity >= requiredCapacity(product, prediction))
+        .map((location) => scoreLocation(product, location, state, prediction, isFast, homeZones.get(product.category) ?? ''))
+        .sort((left, right) => right.totalScore - left.totalScore
+          || left.dispatchDistanceMeters - right.dispatchDistanceMeters
+          || left.location.id.localeCompare(right.location.id));
+      const recommendation = choices[0];
+      if (!recommendation) continue;
+      const currentScore = scoreLocation(product, currentLocation, state, prediction, isFast, homeZones.get(product.category) ?? '');
+      const improvement = recommendation.totalScore - currentScore.totalScore;
+      if (improvement <= 0) continue;
+      round.push({
+        product, pickedUnits30Days: prediction.pickedUnits30Days, fastMover: isFast, currentLocation, recommendation, improvement,
+        currentDistanceMeters: currentDistance,
+        distanceChangeMeters: recommendation.dispatchDistanceMeters - currentDistance,
+        reason: isFast
+          ? `Fast-moving stock has ${prediction.pickedUnits30Days} PICK units in 30 days and is currently ${currentDistance} m from dispatch at level ${currentLocation.level}; the suggested slot is ${recommendation.dispatchDistanceMeters} m away at level ${recommendation.location.level}.`
+          : `Slow-moving stock has ${prediction.pickedUnits30Days} PICK units in 30 days but occupies a near-dispatch slot ${currentDistance} m away at level ${currentLocation.level}; the suggested slot is ${recommendation.dispatchDistanceMeters} m away at level ${recommendation.location.level}.`,
+      });
+    }
+    round.sort((left, right) => right.improvement - left.improvement
+      || right.recommendation.totalScore - left.recommendation.totalScore
+      || left.product.sku.localeCompare(right.product.sku)
+      || left.recommendation.location.id.localeCompare(right.recommendation.location.id));
+    const winner = round[0];
+    if (!winner) break;
+    candidates.push(winner);
+    activeSlots.add(winner.recommendation.location.id);
+  }
+  return candidates.slice(0, Math.max(0, Math.floor(count)));
 }
 
 export function filterStockoutPredictions(predictions: StockoutPrediction[], risk: StockoutRiskFilter): StockoutPrediction[] {

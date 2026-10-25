@@ -194,7 +194,8 @@ describe('stock actions', () => {
     expect(reset.products).toEqual(seedBusinessData.products);
     expect(reset.orders).toEqual(seedBusinessData.orders);
     expect(reset.movements).toEqual(seedBusinessData.movements);
-    expect(reset.locations).toEqual(changed.locations);
+    expect(reset.locations).toEqual(seedBusinessData.locations);
+    expect(Object.keys(reset.locations)).toHaveLength(56);
     expect(reset.users).toEqual(changed.users);
     expect(reset.currentUserId).toBe(managerId);
     expect(reset.session).toEqual(initial.users[managerId]);

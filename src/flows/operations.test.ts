@@ -195,6 +195,8 @@ describe('Round 3 store operation flows', () => {
     expect(reset.products).toEqual(seedBusinessData.products);
     expect(reset.orders).toEqual(seedBusinessData.orders);
     expect(reset.movements).toEqual(seedBusinessData.movements);
+    expect(reset.locations).toEqual(seedBusinessData.locations);
+    expect(Object.keys(reset.locations)).toHaveLength(56);
     expect(reset.session).toEqual(state.session);
     expect(reset.currentUserId).toBe(userId);
     expect(reset.theme).toBe('dark');

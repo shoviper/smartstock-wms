@@ -62,11 +62,21 @@ describe('seed locations', () => {
   const locations = Object.values(seedBusinessData.locations);
 
   it('assigns every SKU a unique location that exists in the Location list', () => {
-    expect(locations).toHaveLength(40);
-    expect(new Set(locations.map((location) => location.id)).size).toBe(40);
+    expect(locations).toHaveLength(56);
+    expect(new Set(locations.map((location) => location.id)).size).toBe(56);
     expect(new Set(products.map((product) => product.locationId)).size).toBe(products.length);
     for (const product of products) {
       expect(seedBusinessData.locations[product.locationId]).toBeDefined();
+    }
+  });
+
+  it('adds exactly 16 vacant slots without assigning any SKU to them', () => {
+    const occupied = new Set(products.map((product) => product.locationId));
+    const vacant = locations.filter((location) => !occupied.has(location.id));
+    expect(vacant).toHaveLength(16);
+    expect(new Set(vacant.map((location) => location.zone))).toEqual(new Set(['A', 'B', 'C', 'D']));
+    for (const location of vacant) {
+      expect(Math.abs(location.coordinates.x) + Math.abs(location.coordinates.y - 5)).toBe(location.dispatchDistanceMeters);
     }
   });
 

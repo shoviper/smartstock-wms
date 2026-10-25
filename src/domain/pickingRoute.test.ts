@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Location, OrderLine } from './models';
-import { DISPATCH_POINT, optimizeRoute, walkingDistance } from './pickingRoute';
+import { buildPickingAisleBlocks, DISPATCH_POINT, optimizeRoute, walkingDistance } from './pickingRoute';
+import { seedBusinessData } from '../data/seed';
 
 function line(sku: string): OrderLine {
   return { sku, qty: 1, pickedQty: 0 };
@@ -53,5 +54,16 @@ describe('picking route', () => {
     expect(baseline).toBe(22);
     expect(optimized.distanceMeters).toBe(20);
     expect(optimized.distanceMeters).toBeLessThanOrEqual(baseline);
+  });
+
+  it('keeps the occupied-aisle block count and coordinates identical after vacant locations are added', () => {
+    const occupiedLocationIds = new Set(Object.values(seedBusinessData.products).map((product) => product.locationId));
+    const beforeLocations = Object.fromEntries(Object.entries(seedBusinessData.locations)
+      .filter(([, location]) => location.aisle !== '03'));
+    const before = buildPickingAisleBlocks(beforeLocations, occupiedLocationIds);
+    const after = buildPickingAisleBlocks(seedBusinessData.locations, occupiedLocationIds);
+    expect(before).toHaveLength(8);
+    expect(after).toHaveLength(8);
+    expect(after).toEqual(before);
   });
 });

@@ -95,6 +95,7 @@ export function storeReducer(state: StoreState, action: StoreAction): StoreState
       return {
         ...state,
         products: seed.products,
+        locations: seed.locations,
         orders: seed.orders,
         movements: seed.movements,
         feedback: { kind: 'success', message: 'Demo business data has been reset.' },

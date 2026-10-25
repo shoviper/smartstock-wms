@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Movement, Order, Product, StoreState } from './models';
-import { buildManagerSummary, filterStockoutPredictions, selectStockoutInsights } from './insights';
+import { buildManagerSummary, filterStockoutPredictions, recommendLocations, selectReslottingSuggestions, selectStockoutInsights } from './insights';
+import type { Location } from './models';
 
 const now = new Date('2026-10-25T12:00:00.000Z');
 
@@ -213,5 +214,84 @@ describe('buildManagerSummary', () => {
     expect(result.issues).toEqual([]);
     expect(result.doFirst).toEqual([]);
     expect(result.bySeverity).toEqual({ CRITICAL: [], HIGH: [], MEDIUM: [] });
+  });
+});
+
+describe('storage location recommendations', () => {
+  function location(id: string, zone: string, x: number, y: number, level = 1, capacity = 200): Location {
+    return { id, zone, aisle: '03', rack: id, level, capacity, coordinates: { x, y }, dispatchDistanceMeters: 999 };
+  }
+
+  it('recommends only vacant positions with enough capacity and unique deterministic results', () => {
+    const product = { ...makeProduct('SKU', 20, 2, 10), locationId: 'occupied' };
+    const locations = [location('occupied', 'A', 1, 5), location('free-2', 'A', 2, 5), location('free-1', 'A', 3, 5), location('small', 'A', 4, 5, 1, 5)];
+    const state = { ...stateFor([product], [movement('SKU', 'PICK', 60)]), locations: Object.fromEntries(locations.map((item) => [item.id, item])) };
+    const rows = recommendLocations(product, state, now, 3);
+    expect(rows.map((row) => row.location.id)).toEqual(['free-2', 'free-1']);
+    expect(rows.every((row) => row.location.capacity >= 20)).toBe(true);
+    expect(new Set(rows.map((row) => row.location.id)).size).toBe(rows.length);
+    expect(rows[0].dispatchDistanceMeters).toBe(2);
+    expect(rows[0].reason).toBe('Zone A matches the Test home zone. 2 m from dispatch at level 1 suits fast-moving stock. Capacity 200 covers the 20 units needed (on-hand plus suggested fill).');
+    expect(rows[0].totalScore).toBe(Object.values(rows[0].factorScores).reduce((sum, score) => sum + score, 0));
+  });
+
+  it('favors a closer vacancy for a fast mover than for a slow mover', () => {
+    const fast = makeProduct('FAST', 10, 1, 5);
+    const slow = makeProduct('SLOW', 10, 1, 5);
+    const slots = [location('near', 'A', 5, 5), location('far', 'A', 30, 5)];
+    const state = {
+      ...stateFor([fast, slow], [movement('FAST', 'PICK', 300), movement('SLOW', 'PICK', 1)]),
+      locations: Object.fromEntries(slots.map((item) => [item.id, item])),
+    };
+    const fastRecommendation = recommendLocations(fast, state, now, 1)[0];
+    const slowRecommendation = recommendLocations(slow, state, now, 1)[0];
+    expect(fastRecommendation.location.id).toBe('near');
+    expect(slowRecommendation.location.id).toBe('far');
+  });
+
+  it('uses the positive-demand 75th percentile and includes ties at the cutoff; no-demand SKUs are slow', () => {
+    const products = [
+      makeProduct('TOP', 10), makeProduct('TIE-A', 10), makeProduct('TIE-B', 10),
+      makeProduct('SLOW', 10), makeProduct('NO-DEMAND', 10),
+    ].map((product) => ({ ...product, locationId: `occupied-${product.sku}` }));
+    const locations = [
+      ...products.map((product, index) => location(product.locationId, 'A', 40 + index, 5)),
+      location('near', 'A', 4, 5), location('far', 'A', 50, 5, 3),
+    ];
+    const state = {
+      ...stateFor(products, [
+        movement('TOP', 'PICK', 100), movement('TIE-A', 'PICK', 50), movement('TIE-B', 'PICK', 50), movement('SLOW', 'PICK', 1),
+      ]),
+      locations: Object.fromEntries(locations.map((item) => [item.id, item])),
+    };
+    expect(recommendLocations(products[1], state, now, 1)[0].location.id).toBe('near');
+    expect(recommendLocations(products[2], state, now, 1)[0].location.id).toBe('near');
+    expect(recommendLocations(products[3], state, now, 1)[0].location.id).toBe('far');
+    expect(recommendLocations(products[4], state, now, 1)[0].location.id).toBe('far');
+  });
+
+  it('returns no recommendations when there are no empty positions', () => {
+    const product = { ...makeProduct('SKU', 10), locationId: 'occupied' };
+    const state = { ...stateFor([product]), locations: { occupied: location('occupied', 'A', 3, 5) } };
+    expect(recommendLocations(product, state, now)).toEqual([]);
+  });
+
+  it('allocates each re-slotting vacancy to at most one SKU and resolves ties consistently', () => {
+    const first = { ...makeProduct('SKU-A', 20), locationId: 'far-a' };
+    const second = { ...makeProduct('SKU-B', 20), locationId: 'far-b' };
+    const locations = [location('far-a', 'A', 48, 5), location('far-b', 'A', 48, 6), location('near-slot', 'A', 4, 5)];
+    const state = {
+      ...stateFor([first, second], [movement('SKU-A', 'PICK', 300), movement('SKU-B', 'PICK', 300)]),
+      locations: Object.fromEntries(locations.map((item) => [item.id, item])),
+    };
+    const suggestions = selectReslottingSuggestions(state, now, 5);
+    expect(suggestions).toHaveLength(1);
+    expect(suggestions[0].product.sku).toBe('SKU-A');
+    expect(suggestions[0].recommendation.location.id).toBe('near-slot');
+    expect(new Set(suggestions.map((row) => row.recommendation.location.id)).size).toBe(suggestions.length);
+    expect(suggestions[0]).toMatchObject({ pickedUnits30Days: 300, currentDistanceMeters: 48, distanceChangeMeters: -44 });
+    expect(suggestions[0].reason).toContain('300 PICK units in 30 days');
+    expect(suggestions[0].reason).toContain('currently 48 m');
+    expect(suggestions[0].reason).toContain('suggested slot is 4 m');
   });
 });

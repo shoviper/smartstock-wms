@@ -52,6 +52,25 @@ const locationRows: Location[] = [
 
 const locations = locationRows;
 
+// Four vacant slots per zone; coordinates and stored dispatch distance use the 4d dispatch point (0, 5).
+const vacantLocationRows: Location[] = ['A', 'B', 'C', 'D'].flatMap((zone, zoneIndex) => {
+  const x = [16, 28, 40, 52][zoneIndex];
+  return [4, 8, 12, 16].map((y, index) => {
+    const level = [1, 1, 2, 3][index];
+    const rack = String(index + 1).padStart(2, '0');
+    return {
+      id: `${zone}-03-${rack}-${level}`,
+      zone,
+      aisle: '03',
+      rack,
+      level,
+      capacity: [120, 100, 100, 150][index],
+      coordinates: { x, y },
+      dispatchDistanceMeters: Math.abs(x) + Math.abs(y - 5),
+    };
+  });
+});
+
 const productLocationBySku: Record<string, string> = {
   'SKU-001': 'A-01-01-1', 'SKU-002': 'A-01-02-1', 'SKU-003': 'A-01-03-1',
   'SKU-004': 'A-02-01-2', 'SKU-005': 'A-02-02-2',
@@ -247,7 +266,7 @@ movements.sort((a, b) => a.timestamp.localeCompare(b.timestamp) || a.id.localeCo
 
 export const seedBusinessData: BusinessData = {
   products: Object.fromEntries(productRows.map((product) => [product.sku, product])),
-  locations: Object.fromEntries(locations.map((location) => [location.id, location])),
+  locations: Object.fromEntries([...locations, ...vacantLocationRows].map((location) => [location.id, location])),
   orders: Object.fromEntries(orders.map((order) => [order.id, order])),
   movements,
   users: Object.fromEntries(users.map((user) => [user.id, user])),

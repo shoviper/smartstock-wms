@@ -1,7 +1,7 @@
 import { createSeedBusinessData } from '../data/seed';
 import type { StoreState, Theme } from '../domain/models';
 
-export const STORE_VERSION = 3;
+export const STORE_VERSION = 4;
 export const STORAGE_KEY = 'smartstock-wms-store';
 
 export interface PersistedStoreEnvelope {
@@ -58,47 +58,15 @@ export function loadStoreState(storage = getBrowserStorage()): StoreState {
     const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object') return createInitialStoreState();
     const envelope = parsed as Partial<PersistedStoreEnvelope>;
-    if ((envelope.version !== 1 && envelope.version !== 2 && envelope.version !== STORE_VERSION) || !isPersistedState(envelope.state)) {
+    if ((envelope.version !== 1 && envelope.version !== 2 && envelope.version !== 3 && envelope.version !== STORE_VERSION) || !isPersistedState(envelope.state)) {
       return createInitialStoreState();
     }
     const seedData = createSeedBusinessData();
-    const seedProducts = seedData.products;
-    const products = Object.fromEntries(Object.entries(envelope.state.products).map(([sku, product]) => {
-      const seedProduct = seedProducts[sku];
-      if (!seedProduct) return [sku, product];
-      const category = seedProduct.category;
-      const unit = seedProduct.unit;
-      return [sku, product.category !== category || product.unit !== unit || product.locationId !== seedProduct.locationId
-        ? { ...product, category, unit, locationId: seedProduct.locationId }
-        : product];
-    }));
-    const movements = envelope.state.movements.map((movement) => {
-      const product = seedProducts[movement.sku];
-      return product && movement.locationId !== product.locationId
-        ? { ...movement, locationId: product.locationId }
-        : movement;
-    });
-    const orders = Object.fromEntries(Object.entries(envelope.state.orders).map(([orderId, order]) => {
-      const migratedOrder = {
-        ...order,
-        startedAt: order.startedAt ?? null,
-        assignedTo: order.assignedTo ?? null,
-      };
-      if (order.status !== 'COMPLETED_WITH_SHORTAGE') return [orderId, migratedOrder];
-      return [orderId, {
-        ...migratedOrder,
-        lines: order.lines.map((line) => line.shortQty === undefined
-          ? { ...line, shortQty: Math.max(0, line.qty - line.pickedQty), shortReason: line.shortReason ?? 'Not found at location' }
-          : line),
-        completedAt: order.completedAt ?? null,
-      }];
-    }));
+    // Add newly seeded locations by ID only. A saved location with the same ID always wins.
+    const locations = { ...seedData.locations, ...envelope.state.locations };
     return {
       ...envelope.state,
-      products,
-      locations: seedData.locations,
-      orders,
-      movements,
+      locations,
       session: envelope.state.session ?? null,
       feedback: null,
     };

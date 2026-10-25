@@ -3,14 +3,18 @@ import { Link } from 'react-router-dom';
 import {
   buildManagerSummary,
   filterStockoutPredictions,
+  FAST_MOVER_PERCENTILE,
   getStockoutMethodSummary,
+  LOCATION_SCORE_WEIGHTS,
+  recommendLocations,
+  selectReslottingSuggestions,
   selectStockoutInsights,
   type StockoutRisk,
   type StockoutRiskFilter,
   type ManagerIssueSeverity,
 } from '../domain/insights';
 import type { Location, Order, OrderLine, StockStatus } from '../domain/models';
-import { DISPATCH_POINT, optimizeRoute, walkingDistance } from '../domain/pickingRoute';
+import { buildPickingAisleBlocks, DISPATCH_POINT, optimizeRoute, walkingDistance } from '../domain/pickingRoute';
 import { useStore } from '../store/StoreProvider';
 
 const riskOrder: StockoutRisk[] = ['STOCKED_OUT', 'HIGH', 'AT_RISK', 'WATCH', 'OK', 'NO_RECENT_DEMAND'];
@@ -18,6 +22,7 @@ const insightSections = [
   { id: 'manager-summary', label: 'Manager Summary' },
   { id: 'stockout-prediction', label: 'Stockout Prediction' },
   { id: 'picking-route', label: 'Picking Route' },
+  { id: 'storage-location-recommendation', label: 'Storage Location Recommendation' },
 ];
 const severityOrder: ManagerIssueSeverity[] = ['CRITICAL', 'HIGH', 'MEDIUM'];
 const severityLabels: Record<ManagerIssueSeverity, string> = { CRITICAL: 'Critical', HIGH: 'High', MEDIUM: 'Medium' };
@@ -71,23 +76,14 @@ function PickingRouteMap({
   locationsBySku: Record<string, Location>;
   allLocations: Record<string, Location>;
 }) {
-  const aisles = new Map<string, Location[]>();
-  Object.values(allLocations).forEach((location) => {
-    const key = `${location.zone}-${location.aisle}`;
-    aisles.set(key, [...(aisles.get(key) ?? []), location]);
-  });
+  const occupiedIds = new Set(Object.values(locationsBySku).map((location) => location.id));
+  const aisleBlocks = buildPickingAisleBlocks(allLocations, occupiedIds);
   const dispatch = mapPoint(DISPATCH_POINT);
   const baselineLabels = sequenceLabelPositions(baseline, locationsBySku, 'baseline');
   const suggestedLabels = sequenceLabelPositions(suggested, locationsBySku, 'suggested');
   return <div className="picking-route-map-scroll"><svg aria-label="Warehouse picking route map" className="picking-route-map" role="img" viewBox="0 40 1060 430">
-    {[...aisles.entries()].map(([key, locations]) => {
-      const xs = locations.map((location) => location.coordinates.x);
-      const ys = locations.map((location) => location.coordinates.y);
-      const left = Math.min(...xs) * 18 + 34;
-      const top = Math.min(...ys) * 18 + 22;
-      const right = Math.max(...xs) * 18 + 78;
-      const bottom = Math.max(...ys) * 18 + 62;
-      return <g key={key}><rect className="picking-route-aisle" height={bottom - top} rx="8" width={right - left} x={left} y={top} /><text className="picking-route-block-label" textAnchor="middle" x={(left + right) / 2} y={top - 7}>{`${locations[0].zone}${locations[0].aisle}`}</text></g>;
+    {aisleBlocks.map((block) => {
+      return <g key={block.id}><rect className="picking-route-aisle" height={block.height} rx="8" width={block.width} x={block.x} y={block.y} /><text className="picking-route-block-label" textAnchor="middle" x={block.x + block.width / 2} y={block.y - 7}>{`${block.zone}${block.aisle}`}</text></g>;
     })}
     <path className="picking-route-line picking-route-baseline" d={routePath(baseline, locationsBySku)} transform="translate(0 -3)" />
     <path className="picking-route-line picking-route-suggested" d={routePath(suggested, locationsBySku)} />
@@ -107,6 +103,7 @@ export function AIInsightsPage() {
   const [now, setNow] = useState(() => new Date());
   const [riskFilter, setRiskFilter] = useState<StockoutRiskFilter>('ALL');
   const [selectedRouteOrderId, setSelectedRouteOrderId] = useState('');
+  const [selectedLocationSku, setSelectedLocationSku] = useState('');
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 60_000);
     return () => window.clearInterval(timer);
@@ -117,6 +114,11 @@ export function AIInsightsPage() {
   const visibleRows = useMemo(() => filterStockoutPredictions(insights.predictions, riskFilter), [insights.predictions, riskFilter]);
   const method = useMemo(() => getStockoutMethodSummary(), []);
   const routeOrders = useMemo(() => Object.values(state.orders).filter((order) => order.lines.length >= 3), [state.orders]);
+  const locationProducts = useMemo(() => Object.values(state.products).sort((left, right) => left.sku.localeCompare(right.sku)), [state.products]);
+  const selectedLocationProduct = locationProducts.find((product) => product.sku === selectedLocationSku) ?? locationProducts[0];
+  const locationRecommendations = useMemo(() => selectedLocationProduct
+    ? recommendLocations(selectedLocationProduct, state, now, 3) : [], [selectedLocationProduct, state, now]);
+  const reslottingSuggestions = useMemo(() => selectReslottingSuggestions(state, now, 5), [state, now]);
   const routeLocationsBySku = useMemo(() => Object.fromEntries(Object.values(state.products).flatMap((product) => {
     const location = state.locations[product.locationId];
     return location ? [[product.sku, location]] : [];
@@ -133,14 +135,14 @@ export function AIInsightsPage() {
     <main className="page-content insights-page">
       <p className="eyebrow">SMARTSTOCK WMS · EXPLORE</p>
       <div className="insights-page-heading">
-        <div>
+        <div className="insights-page-title-row">
           <h1>AI Insights</h1>
-          <p className="intro">Simulated, rule-based insights from current warehouse data.</p>
+          <div className="insights-as-of">
+            <span>Simulated data — concept only</span>
+            <small>As of {asOfFormatter.format(insights.asOf)} Bangkok time</small>
+          </div>
         </div>
-        <div className="insights-as-of">
-          <span>Simulated data — concept only</span>
-          <small>As of {asOfFormatter.format(insights.asOf)} Bangkok time</small>
-        </div>
+        <p className="intro">Simulated, rule-based insights from current warehouse data: Manager Summary, Stockout Prediction, Picking Route and Storage Location Recommendation.</p>
       </div>
 
       {insightSections.length > 1 && (
@@ -331,6 +333,65 @@ export function AIInsightsPage() {
             </div>
           </>
         )}
+      </section>
+
+      <section aria-labelledby="storage-location-title" className="insights-section storage-location-section" id="storage-location-recommendation">
+        <div className="insights-section-heading">
+          <div>
+            <h2 id="storage-location-title">Storage Location Recommendation</h2>
+            <p>Compare vacant positions using category, PICK activity, distance and capacity.</p>
+          </div>
+          <SimulatedDataBadge />
+        </div>
+        <p className="storage-location-roadmap-note">Recommendations only. No product is moved in the store; a real system would create a TRANSFER movement (Roadmap).</p>
+        <section aria-labelledby="location-explorer-title" className="storage-location-explorer">
+          <h3 id="location-explorer-title">Try a SKU</h3>
+          {locationProducts.length === 0 ? <p className="storage-location-empty">No products are available to recommend a location.</p> : (
+            <>
+              <label className="storage-location-select">Select SKU
+                <select onChange={(event) => setSelectedLocationSku(event.target.value)} value={selectedLocationProduct?.sku ?? ''}>
+                  {locationProducts.map((product) => <option key={product.sku} value={product.sku}>{product.sku} · {product.name}</option>)}
+                </select>
+              </label>
+              {!locationRecommendations.length ? <p className="storage-location-empty">No vacant location has enough capacity for on-hand plus suggested fill.</p> : (
+                <div className="storage-location-recommendations">
+                  {locationRecommendations.map((recommendation, index) => <article className="storage-location-card" key={recommendation.location.id}>
+                    <div className="storage-location-card-heading"><strong>{index + 1}. {recommendation.location.id}</strong><span>{recommendation.totalScore} points</span></div>
+                    <p>{recommendation.reason}</p>
+                    <dl>
+                      <div><dt>Category zone</dt><dd>{recommendation.factorScores.categoryZone}/{LOCATION_SCORE_WEIGHTS.categoryZone}</dd></div>
+                      <div><dt>Velocity fit</dt><dd>{recommendation.factorScores.velocityFit}/{LOCATION_SCORE_WEIGHTS.velocityFit}</dd></div>
+                      <div><dt>Capacity fit</dt><dd>{recommendation.factorScores.capacityFit}/{LOCATION_SCORE_WEIGHTS.capacityFit}</dd></div>
+                    </dl>
+                  </article>)}
+                </div>
+              )}
+            </>
+          )}
+        </section>
+
+        <section aria-labelledby="reslotting-title" className="storage-reslotting">
+          <div className="storage-reslotting-heading"><div><h3 id="reslotting-title">Re-slotting suggestions</h3><p>Up to five suggestions; each vacant location is assigned to one SKU at most.</p></div></div>
+          {!reslottingSuggestions.length ? <p className="storage-location-empty">No current product locations meet the re-slotting rules.</p> : (
+            <div className="storage-reslotting-list">
+              {reslottingSuggestions.map((suggestion) => <article className="storage-reslotting-item" key={suggestion.product.sku}>
+                <div className="storage-reslotting-title"><strong>{suggestion.product.sku} · {suggestion.product.name}</strong><span>{suggestion.pickedUnits30Days} PICK units / 30 days</span></div>
+                <p>{suggestion.reason}</p>
+                <div className="storage-reslotting-route"><span>{suggestion.currentLocation.id}</span><span aria-hidden="true">→</span><span>{suggestion.recommendation.location.id}</span></div>
+                <small>Simulated dispatch distance: {suggestion.currentDistanceMeters} m → {suggestion.recommendation.dispatchDistanceMeters} m ({suggestion.distanceChangeMeters > 0 ? '+' : ''}{suggestion.distanceChangeMeters} m)</small>
+              </article>)}
+            </div>
+          )}
+        </section>
+
+        <div className="storage-location-method insights-how-panel">
+          <div className="insights-how-heading"><h3>How this works</h3><SimulatedDataBadge /></div>
+          <div className="insights-how-content">
+            <p><strong>Data used:</strong> vacant positions, category locations, product on-hand, reorder point, lead time and PICK movements in the last 30 days.</p>
+            <p><strong>Rules:</strong> category zone {LOCATION_SCORE_WEIGHTS.categoryZone} points, velocity fit {LOCATION_SCORE_WEIGHTS.velocityFit} points and capacity fit {LOCATION_SCORE_WEIGHTS.capacityFit} points. Fast-moving means the top quartile among SKUs with PICK demand in the last 30 days; the cutoff is the nearest-rank {Math.round(FAST_MOVER_PERCENTILE * 100)}th percentile and ties at the cutoff count as fast. No-demand SKUs count as slow. Distance uses Manhattan coordinates from dispatch (0,5).</p>
+            <p><strong>Limitations:</strong> these are simulated recommendations only and do not move products. A real system would create a TRANSFER movement, which is on the Roadmap. Verify warehouse layout and capacity before acting.</p>
+          </div>
+        </div>
       </section>
 
       <section aria-labelledby="insights-method-title" className="insights-method-card">

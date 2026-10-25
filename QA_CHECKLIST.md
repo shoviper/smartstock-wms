@@ -15,7 +15,7 @@
 | 6 Alert | 2 | Manager | เปิด Inventory และกรอง/ดูสถานะสินค้าที่ปรับ | SKU เดิมแสดงยอดใหม่และสถานะ Low/Critical ตามยอดเทียบ reorder point | ☐ ผ่าน / ☐ ไม่ผ่าน |
 | 6 Dashboard | 3 | Manager | เปิด Dashboard หลังเกิด alert | **รอ Round 4a (Dashboard)** — ไม่ต้องให้ผ่านใน Round 3 ขั้น 3e | รอ Round 4a |
 | 7 Persistence & Reset | 1 | Manager | หลังทำ stock action รีเฟรชหน้า | On-hand และ Movement ยังคงอยู่ | ☐ ผ่าน / ☐ ไม่ผ่าน |
-| 7 Persistence & Reset | 2 | Manager | เปิด dropdown โปรไฟล์ → Reset demo data → ยืนยัน | Products, Orders และ Movements กลับเป็น seed; session และ theme ยังคงเดิม | ☐ ผ่าน / ☐ ไม่ผ่าน |
+| 7 Persistence & Reset | 2 | Manager | เปิด dropdown โปรไฟล์ → Reset demo data → ยืนยัน | Products, Locations, Orders และ Movements กลับเป็น seed; session และ theme ยังคงเดิม | ☐ ผ่าน / ☐ ไม่ผ่าน |
 | 7 Reset permission | 3 | Admin | เปิด dropdown โปรไฟล์และรีเซ็ตข้อมูลพร้อมยืนยัน | เมนู Reset demo data แสดง และ reset สำเร็จ | ☐ ผ่าน / ☐ ไม่ผ่าน |
 | 7 Reset permission | 4 | Picker / Receiver | เปิด dropdown โปรไฟล์ | ไม่เห็นเมนู Reset demo data | ☐ ผ่าน / ☐ ไม่ผ่าน |
 | 8 Role | 1 | Picker | Login เป็น Picker แล้วตรวจ Sidebar | เห็นเมนูของ Picker; Dashboard และเมนูผู้จัดการไม่แสดง | ☐ ผ่าน / ☐ ไม่ผ่าน |
@@ -77,3 +77,16 @@
 | 4 | Manager / Admin | ตรวจ SVG และ legend บน desktop และจอแคบ | มี dispatch, Zone/Aisle, หมายเลข B/A, baseline เส้นประเทาและ suggested เส้นทึบพร้อมป้ายข้อความ; จอแคบเลื่อนแนวนอนได้ | ☐ ผ่าน / ☐ ไม่ผ่าน |
 | 5 | Manager / Admin | ตรวจ How this works | ระบุข้อมูล, nearest-neighbor, ข้อจำกัดว่าไม่รับประกันเส้นทางสั้นที่สุด และระยะจากผังจำลองไม่ใช่ระยะจริง | ☐ ผ่าน / ☐ ไม่ผ่าน |
 | 6 | Picker / Receiver | เปิด `/ai-insights` โดยตรง | ถูก redirect ตาม Role; ไม่มี AI Insights ในเมนู | ☐ ผ่าน / ☐ ไม่ผ่าน |
+
+## Round 4e — Storage Location Recommendation
+
+| ขั้น | Role | สิ่งที่ให้ทดสอบ | ผลที่ควรเห็น | ผล |
+|---:|---|---|---|---|
+| 1 | Manager / Admin | เปิด `/ai-insights` และเมนูลัด | Subtitle และเมนูลัดแสดงครบ Manager Summary, Stockout Prediction, Picking Route และ Storage Location Recommendation | ☐ ผ่าน / ☐ ไม่ผ่าน |
+| 2 | Manager / Admin | เลือก SKU ใน Try a SKU | แสดงได้สูงสุด 3 ตำแหน่งว่างที่ capacity พอ พร้อมคะแนนรวม/แยกปัจจัยและเหตุผล; ถ้าไม่มีช่องว่างที่พอจะแสดง empty state | ☐ ผ่าน / ☐ ไม่ผ่าน |
+| 3 | Manager / Admin | ตรวจ Re-slotting suggestions | สูงสุด 5 รายการ ไม่มีช่องปลายทางซ้ำ; เหตุผลระบุ SKU, PICK 30 วัน, ตำแหน่งและระยะก่อน/หลังเป็นเมตร | ☐ ผ่าน / ☐ ไม่ผ่าน |
+| 4 | Manager / Admin | ตรวจป้ายและ How this works | มี “Simulated data — concept only”; ระบุเกณฑ์ top quartile จาก SKUs ที่มี PICK demand, SKU ไม่มี demand เป็น slow, น้ำหนักคะแนนและระยะ Manhattan จาก (0,5); ระบุ TRANSFER movement บน Roadmap | ☐ ผ่าน / ☐ ไม่ผ่าน |
+| 5 | Manager / Admin | ตรวจ Picking Route หลังเพิ่ม 16 ช่องว่าง | ผังยังมี aisle blocks 8 บล็อกและพิกัดเดิม; ช่องว่างไม่ปรากฏเป็นจุดหยิบหรือบล็อกใหม่ | ☐ ผ่าน / ☐ ไม่ผ่าน |
+| 6 | Manager / Admin | ทดสอบจอ ~375px และ Light/Dark | เลือก SKU, เหตุผลและตำแหน่งอ่านได้ ไม่มีฟอนต์ต่ำกว่า 11px ในส่วนใหม่นี้หรือ overflow แนวนอนทั้งหน้า | ☐ ผ่าน / ☐ ไม่ผ่าน |
+| 7 | Manager / Admin | ใช้ Reset demo data | ได้ 56 Locations (รวม 16 ช่องว่าง) และ session/theme ยังคงเดิม | ☐ ผ่าน / ☐ ไม่ผ่าน |
+| 8 | Manager / Admin | เปรียบเทียบ Location/สินค้าก่อนและหลังเปิดหน้า | คำแนะนำไม่เปลี่ยน `product.locationId`, on-hand หรือสร้าง TRANSFER Movement | ☐ ผ่าน / ☐ ไม่ผ่าน |
